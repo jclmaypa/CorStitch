@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QCheckBox, QComboBox, QFormLayout, QDateEdit,
     QTimeEdit, QSizePolicy, QGridLayout, QFrame, QToolButton, QToolTip, QDialog
 )
+import datetime
 from PyQt5.QtCore import QDate, Qt, QTime
 from PyQt5.QtGui import QIntValidator
 import sys
@@ -562,23 +563,23 @@ class MainWindow(QWidget):
 
         if "georeference" in self.chosen_processes:
             if self.georef_part2 == True:
-                data["sync_time"] = self.sync_time.time().toString("HH:mm:ss")[0],
+                data["sync_time"] = self.sync_time.time().toString("HH:mm:ss"),
                 data["date_picker"] = self.date_value
                 data["unique_dates"] = self.unique_dates,
                 data["depth_status"] = self.raw_data.depth_status,
                 data["bearing_status"] = self.raw_data.heading_status
             else:
-                data["sync_time"] = ""
-                data["date_picker"] = ""
-                data["unique_dates"] = ""
-                data["depth_status"] = ""
-                data["bearing_status"] = ""
+                data["sync_time"] = " "
+                data["date_picker"] = " "
+                data["unique_dates"] = " "
+                data["depth_status"] = " "
+                data["bearing_status"] = " "
         else:
-            data["sync_time"] = ""
-            data["date_picker"] = ""
-            data["unique_dates"] = ""
-            data["depth_status"] = ""
-            data["bearing_status"] = ""
+            data["sync_time"] = " "
+            data["date_picker"] = " "
+            data["unique_dates"] = " "
+            data["depth_status"] = " "
+            data["bearing_status"] = " "
 
         if np.all([not data["project_name"].strip(), not data["video_folder"].strip(), not data["output_directory"].strip()]):
             self.show_custom_popup("Please fill in the Project Name, Video Folder, and Output Directory.", title="Error")
@@ -626,16 +627,23 @@ class MainWindow(QWidget):
             sync_vid_time = int(data["starting_time"])
         if "georeference" in chosen_processes:
             utc_offset = int(data["utc_offset"])
+            sync_UTC_time = str(data["sync_time"][0])
+            sync_UTC_time = datetime.datetime.strptime(sync_UTC_time,'%H:%M:%S')
+            sync_UTC_time = sync_UTC_time + datetime.timedelta(hours = - 8 + utc_offset)
+            sync_UTC_time = sync_UTC_time.strftime("%H:%M:%S")
 
         project_name = data["project_name"]
         vid_dir = data["video_folder"]
         output_dir = data["output_directory"]
         frame_res = data["frame_resolution"]
         date = data["date_picker"]
-        sync_UTC_time = str(data["sync_time"])
+        
+
+        
+
         video_res = data["frame_resolution"]
         unique_dates = data["unique_dates"]
-        depth_status = data["depth_status"]
+        depth_status = data["depth_status"][0]
         bearing_status = data["bearing_status"]
 
         project_dir = os.path.join(output_dir, project_name)
@@ -741,6 +749,7 @@ class MainWindow(QWidget):
                                             font_properties={'family': 'monospace',
                                                             'weight': 'semibold',
                                                             'size': 20})
+                        
                     img = np.array(Image.open(os.path.join(mosaics_dir, f"{mosaics[i]}.png")))[:, :, 0:3]
                     img = imutils.rotate_bound(img, angle=heading)
                     non_black_rows = np.any(img != [0, 0, 0], axis=(1, 2))

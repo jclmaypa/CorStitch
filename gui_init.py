@@ -272,7 +272,7 @@ def mosaic_creation(mosaic_t, sync_vid_time, frames_dir, mosaics_dir, interval =
     if mosaic_boundaries[-1] < num_images:
         mosaic_boundaries = np.append(mosaic_boundaries, num_images)
 
-    upper_threshold = 0.1*sl
+    upper_threshold = 0.2*sl
     stitching_threshold = 0.5*sl
     mosaic_counter = 0
     stats = {"pcy":[], "pcx":[],"ccy":[], "ccx":[], "mosaic_number":[], "chosen" : []}
