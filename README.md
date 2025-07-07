@@ -11,7 +11,7 @@ The second part of ARRAS is a software for automatic video stitching to create g
 
 # CorStitch
 
-CorStitch can create panorama-like images called mosaics by using Fourier-based image registration on the central strips of adjacent frames to stitch them together <sup>[2](#ref2)</sup>. By repeating this process for an $n$ number of central strips of succeeding frames, CorStitch can create an $n$-second mosaic <sup>[3](#ref3)</sup>. The mosaics below are samples of $5$-second mosaics.
+CorStitch can create panorama-like images called mosaics by using Fourier-based image registration<sup>[2](#ref2)</sup> on the central strips<sup>[3](#ref3)</sup> of adjacent frames to stitch them together. By repeating this process for an $n$ number of central strips of succeeding frames, CorStitch can create an $n$-second mosaic. The mosaics below are samples of $5$-second mosaics.
 
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_mosaics.png?raw=true" alt="Description" width="100%"/>
