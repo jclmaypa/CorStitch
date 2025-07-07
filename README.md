@@ -2,7 +2,7 @@
 The .zip files contain the executables. To run the Python script, run gui_main.py with gui_init.py in the same directory.
 
 # Overview
-An Automated Rapid Reef Assessment System (ARRAS) has two parts. The first part is composed of a banca-towable platform equipped with a down-looking camera <sup>[1](#ref1)</sup>. By using the first part to conduct an ARRAS survey, a belt transect video is obtained. A sample of this video can be seen below.
+An Automated Rapid Reef Assessment System (ARRAS) has two parts. The first part is composed of a banca-towable platform equipped with a down-looking camera<sup>[1](#ref1)</sup>. By using the first part to conduct an ARRAS survey, a belt transect video is obtained. A sample of this video can be seen below.
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/47b69ecaae19efd6889afb5eb8edb0f2497467f3/Sample_Images/Sample_clip.gif?raw=true" alt="Description" width="100%"/>
 </p>
