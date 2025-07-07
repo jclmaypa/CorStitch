@@ -1,15 +1,15 @@
-# Downlaod CorStitch
+![image](https://github.com/user-attachments/assets/eade9790-65c7-40c4-b888-9467ccd7a8e8)# Downlaod CorStitch
 
 ### For Windows
 
 ### For MacOS
 
 # Overview
-An Automated Rapid Reef Assessment System (ARRAS) includes two parts. The first part is composed of a banca-towable platform equipped with a down-looking camera. By using the first part to conduct an ARRAS survey, we can obtain a belt transect video. A sample of this video can be seen below.
+An Automated Rapid Reef Assessment System (ARRAS) has two parts. The first part is composed of a banca-towable platform equipped with a down-looking camera <sup>[1](#ref1)</sup>. By using the first part to conduct an ARRAS survey, we can obtain a belt transect video. A sample of this video can be seen below.
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/47b69ecaae19efd6889afb5eb8edb0f2497467f3/Sample_Images/Sample_clip.gif?raw=true" alt="Description" width="100%"/>
 </p>
-The second part of ARRAS is a software for automatic video stitching to create georeferenced visual records from the data collected from the first part. Enter CorStitch, a free, open-source software aimed at converting down-looking belt transect videos from ARRAS surveys into georeferenced mosaics. CorStitch can create panorama-like images called mosaics by using Fourier-based image registration.
+The second part of ARRAS is a software for automatic video stitching to create georeferenced visual records from the data collected from the first part. Enter CorStitch, a free, open-source software aimed at converting down-looking belt transect videos from ARRAS surveys into georeferenced mosaics. CorStitch can create panorama-like images called mosaics by using Fourier-based image registration <sup>[2](#ref2)</sup><sup>[3](#ref3)</sup>.
 
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_mosaics.png?raw=true" alt="Description" width="100%"/>
@@ -20,3 +20,10 @@ Once the mosaics are created, they can then be georeferenced. CorStitch uses GNS
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_georef.png?raw=true" alt="Description" width="100%"/>
 </p>
+
+# References:
+<a name="ref1">[1]</a> Soriano, M. N. (n.d.). Automated Rapid Reef Assessment System (Arras). DOST Technology Transfer. https://tapitechtransfer.dost.gov.ph/technologies/it-development/automated-rapid-reef-assessment-system-arras 
+<a name="ref2">[2]</a> X. Tong et al., "Image Registration With Fourier-Based Image Correlation: A Comprehensive Review of Developments and Applications," in IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, vol. 12, no. 10, pp. 4062-4081, Oct. 2019, doi: 10.1109/JSTARS.2019.2937690.
+<a name="ref3">[3]</a>Aguinaldo, R.A, and Soriano, M., Telecentric approximation in underwater image mosaics for minimizing parallax-induced errors, Proceedings of the Samahang Pisika ng Pilipinas 34, SPP-2016-4C-02 (2016). URL: https://proceedings.spp-online.org/article/view/SPP-2016-4C-02.
+
+
