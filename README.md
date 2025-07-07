@@ -16,7 +16,7 @@ The second part of ARRAS is a software for automatic video stitching to create g
   <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_mosaics.png?raw=true" alt="Description" width="100%"/>
 </p>
 
-Once the mosaics are created, they can then be georeferenced. CorStitch uses GNSS data to georeference the mosaics, and its main outputs are KMZ files and rectified mosaics.
+Once the mosaics are created, they can then be georeferenced. CorStitch uses GNSS data to georeference the mosaics, and its main outputs are KMZ files and rectified mosaics. An example is shown below when a KMZ file is viewed using a Geospatial Software.
 
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_georef.png?raw=true" alt="Description" width="100%"/>
