@@ -1,6 +1,8 @@
 # Running CorStitch
 The .zip files contain the executables. To run the Python script, run gui_main.py with gui_init.py in the same directory.
 
+User's Manual: https://tinyurl.com/CorStitchManual
+
 # Overview
 An Automated Rapid Reef Assessment System (ARRAS) has two parts. The first part is composed of a banca-towable platform equipped with a down-looking camera<sup>[1](#ref1)</sup>. By using the first part to conduct an ARRAS survey, a belt transect video is obtained. A sample of this video can be seen below.
 <p align="center">
