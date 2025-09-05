@@ -160,7 +160,7 @@ class GPSdata():
         return self.gps_data
         # add synch time
 
-def vid2frames(filename, vid_dir, frames_dir, reduce = False, res = "480p", image_counter = 0):  
+def vid2frames(filename, vid_dir, frames_dir, frame_interval, reduce = False, res = "480p", image_counter = 0):  
 
     cam = cv2.VideoCapture(os.path.join(vid_dir, filename))
     currentframe = 0 + image_counter
@@ -190,11 +190,10 @@ def vid2frames(filename, vid_dir, frames_dir, reduce = False, res = "480p", imag
                 ret,frame = cam.read() 
                 
             name = os.path.join(frames_dir, str(currentframe) + '.jpg')
-
-            if reduce == True:
-                frame = cv2.resize(frame, dsize = resolutions[res], interpolation = cv2.INTER_AREA)
-
-            cv2.imwrite(name, frame) 
+            if currentframe % frame_interval == 0: 
+                if reduce == True:
+                    frame = cv2.resize(frame, dsize = resolutions[res], interpolation = cv2.INTER_AREA)
+                cv2.imwrite(name, frame) 
             currentframe += 1
             bar()
     cam.release() 
@@ -203,6 +202,7 @@ def vid2frames(filename, vid_dir, frames_dir, reduce = False, res = "480p", imag
         "res" : res,
         "time": str(datetime.datetime.now()),
         "fps": fps,
+        "last_frame": currentframe,
     }
     with open(os.path.join(frames_dir, "frame_data.txt"), 'w') as file:
         file.write(str(frame_meta_data))
@@ -248,6 +248,12 @@ def get_imgdim(path):
     image = np.array(Image.open(path))
     return image.shape[0], image.shape[1]
 
+def remove_bad_substrings(s):
+    badSubstring = ".jpg"
+    s = s.replace(badSubstring, "")
+    return s
+
+
 def mosaic_creation(mosaic_t, sync_vid_time, frames_dir, mosaics_dir, interval = 1):
 
     try:
@@ -255,9 +261,11 @@ def mosaic_creation(mosaic_t, sync_vid_time, frames_dir, mosaics_dir, interval =
             frame_data = file.readline()
         video_res = eval(frame_data)["res"]
         fps = eval(frame_data)["fps"]
+        max_frame = eval(frame_data)["last_frame"]
         strip_width = int(int(video_res[:-1])*sl_ratio/2-1)
         sl = resolutions[video_res][0]
         closing_kernel = np.ones((15,15),np.uint8)
+        
     except:
         print("ERROR: Frame data could not be found. Process will abort in 60 seconds. You can close this window now.")
         time.sleep(60)
@@ -265,12 +273,16 @@ def mosaic_creation(mosaic_t, sync_vid_time, frames_dir, mosaics_dir, interval =
         
 
     starting_image = int(sync_vid_time*fps)
-    num_images = len(os.listdir(frames_dir))-1
+    # num_images = len(os.listdir(frames_dir))-1
 
-    img_ids = np.arange(0,num_images, interval, dtype = np.int32)
-    mosaic_boundaries = np.arange(starting_image, num_images, int(round(fps*mosaic_t)))
-    if mosaic_boundaries[-1] < num_images:
-        mosaic_boundaries = np.append(mosaic_boundaries, num_images)
+    # img_ids = np.arange(0,num_images, interval, dtype = np.int32)
+    img_ids = os.listdir(frames_dir)
+    img_ids.remove("frame_data.txt")
+    img_ids = [int(remove_bad_substrings(s)) for s in img_ids]
+    img_ids.sort()
+    mosaic_boundaries = np.arange(starting_image, max_frame, int(round(fps*mosaic_t)))
+    if mosaic_boundaries[-1] < max_frame:
+        mosaic_boundaries = np.append(mosaic_boundaries, max_frame)
 
     upper_threshold = 0.2*sl
     stitching_threshold = 0.5*sl
@@ -279,7 +291,8 @@ def mosaic_creation(mosaic_t, sync_vid_time, frames_dir, mosaics_dir, interval =
     
     with alive_bar(len(mosaic_boundaries)-1, title = f"Creating mosaics...") as bar:
         for i in range(len(mosaic_boundaries)-1):
-            idset = img_ids[mosaic_boundaries[i]:mosaic_boundaries[i+1]]
+            idset = [x for x in img_ids if x >= mosaic_boundaries[i] and x < mosaic_boundaries[i+1]]
+            # idset = img_ids[mosaic_boundaries[i]:mosaic_boundaries[i+1]]
             img_counter = 0
             current_x = 0
             left_border = 0

@@ -23,7 +23,7 @@ import matplotlib
 matplotlib.use('Agg', force = True)
 from gui_init import HMS2Conv, mosaic_creation, vid2frames, get_imgdim, GPSdata
 valid_video_types = ['.mp4', '.avi', '.mov', '.mkv']
-
+print("yawakko")
 r_e = 6378.137*1000
 deg2rad = np.pi/180
 rad2deg = 180/np.pi
@@ -32,7 +32,10 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("CorStitch")
-        self.setFixedSize(480, 750)
+        # Remove fixed size, allow dynamic resizing
+        # self.setFixedSize(480, 750)
+        # self.setMinimumSize(400, 400)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._ignore_toggle = False
         self.init_ui()
         self.georef_part1 = False
@@ -54,14 +57,14 @@ class MainWindow(QWidget):
         )
 
         form_layout = QFormLayout()
+        form_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Project name
         project_name_widget = QWidget()
         project_name_layout = QHBoxLayout()
         project_name_layout.setContentsMargins(0, 0, 0, 0)
         self.project_name = QLineEdit()
-        self.project_name.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.project_name.setFixedHeight(20)
+        self.project_name.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         project_name_info = QLabel(self.info_icon_html)
         project_name_info.setToolTip(
             '<div style="white-space:pre-line; width:240px;">Create a name for your project. This name will be used to create a folder in the Outputs directory. This folder is known as the project folder </div>'
@@ -73,20 +76,21 @@ class MainWindow(QWidget):
 
         # Video Folder
         video_folder_widget = QWidget()
+        video_folder_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         video_folder_layout = QHBoxLayout()
         video_folder_layout.setContentsMargins(0, 0, 0, 0)
+        video_folder_layout.setAlignment(Qt.AlignVCenter)
         self.projects_dir = QLineEdit()
         self.projects_dir.setReadOnly(True)
-        self.projects_dir.setFixedWidth(150)
-        self.projects_dir.setFixedHeight(20)
-        self.projects_dir.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.projects_dir.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         projects_button = QPushButton("Browse")
-        projects_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        projects_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         projects_button.clicked.connect(self.browse_projects)
         video_folder_info = QLabel(self.info_icon_html)
-        video_folder_info.setToolTip(
-            '<div style="white-space:pre-line; width:240px;">Select the folder containing the videos you want to process.</div>'
-        )
+        video_folder_info.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # video_folder_info.setToolTip(
+        #     '<div style="white-space:pre-line; width:240px;">Select the folder containing the videos you want to process.</div>'
+        # )
         video_folder_layout.addWidget(self.projects_dir, stretch=1)
         video_folder_layout.addWidget(projects_button)
         video_folder_layout.addWidget(video_folder_info)
@@ -95,17 +99,18 @@ class MainWindow(QWidget):
 
         # Output directory
         output_dir_widget = QWidget()
+        output_dir_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         output_dir_layout = QHBoxLayout()
         output_dir_layout.setContentsMargins(0, 0, 0, 0)
+        output_dir_layout.setAlignment(Qt.AlignVCenter)
         self.output_dir = QLineEdit()
         self.output_dir.setReadOnly(True)
-        self.output_dir.setFixedWidth(150)
-        self.output_dir.setFixedHeight(20)
-        self.output_dir.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.output_dir.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         browse_button = QPushButton("Browse")
-        browse_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        browse_button.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         browse_button.clicked.connect(self.browse_output)
         output_dir_info = QLabel(self.info_icon_html)
+        output_dir_info.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         output_dir_info.setToolTip(
             '<div style="white-space:pre-line; width:240px;">Select the output directory for your processed files. Inside this directory, a project folder will be created. This folder will contain all the processed files.</div>'
         )
@@ -140,9 +145,10 @@ class MainWindow(QWidget):
             '<div style="white-space:pre-line; width:240px;">This specifies the resolution of the frames that will be extracted from your videos. If you proceed to mosaic creation, the mosaics will have the same quality as your frames.</div>'
         )
         self.frame_resolution = QComboBox()
+        self.frame_resolution.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.frame_resolution.addItems(["360p","480p", "720p", "1080p"])
 
-        # Widget for input + info
+        # Widget for input + info (resolution)
         frame_widget = QWidget()
         frame_widget_layout = QHBoxLayout()
         frame_widget_layout.setContentsMargins(0, 0, 0, 0)
@@ -150,6 +156,24 @@ class MainWindow(QWidget):
         frame_widget_layout.addWidget(frame_info)
         frame_widget.setLayout(frame_widget_layout)
         frame_form.addRow(frame_label, frame_widget)
+
+        # Frame interval (natural numbers only)
+        frame_interval_label = QLabel("Frame interval:")
+        self.frame_interval = QLineEdit()
+        self.frame_interval.setText("1")  # Set default value to 1
+        self.frame_interval.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.frame_interval.setValidator(QIntValidator(1, 99999, self))  # Only allow natural numbers
+        frame_interval_info = QLabel(self.info_icon_html)
+        frame_interval_info.setToolTip(
+            '<div style="white-space:pre-line; width:240px;">This specifies the interval at which frames are extracted from your videos. For example, an input of 5 will extract every 5th frame.</div>'
+        )
+        frame_interval_widget = QWidget()
+        frame_interval_layout = QHBoxLayout()
+        frame_interval_layout.setContentsMargins(0, 0, 0, 0)
+        frame_interval_layout.addWidget(self.frame_interval)
+        frame_interval_layout.addWidget(frame_interval_info)
+        frame_interval_widget.setLayout(frame_interval_layout)
+        frame_form.addRow(frame_interval_label, frame_interval_widget)
         layout.addLayout(frame_form)
 
         # --- Add horizontal line ---
@@ -158,7 +182,7 @@ class MainWindow(QWidget):
         line2.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line2)
 
-        self.frame_widgets = [self.frame_resolution]
+        self.frame_widgets = [self.frame_resolution, self.frame_interval]
         self.set_enabled(self.frame_widgets, False)
         self.frame_extraction_checkbox.setEnabled(False)
 
@@ -172,12 +196,12 @@ class MainWindow(QWidget):
 
         # Mosaic time (positive integers only)
         self.mosaic_time = QLineEdit()
-        self.mosaic_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.mosaic_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.mosaic_time.setValidator(QIntValidator(1, 99999, self))  # Only allow positive integers
 
         # Starting time (positive integers only, or 0 if you want to allow zero)
         self.starting_time = QLineEdit()
-        self.starting_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.starting_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.starting_time.setValidator(QIntValidator(0, 99999, self))  # Allow zero and positive integers
 
         mosaic_time_info = QLabel(self.info_icon_html)
@@ -206,7 +230,7 @@ class MainWindow(QWidget):
 
         mosaic_widget = QWidget()
         mosaic_widget.setLayout(mosaic_form)
-        mosaic_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        mosaic_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         layout.addWidget(mosaic_widget)
 
         self.mosaic_widgets = [self.mosaic_time, self.starting_time]
@@ -270,15 +294,14 @@ class MainWindow(QWidget):
 
         # Time and offset settings (aligned and equal width)
         time_form = QFormLayout()
-        input_width = 200  # Set your desired width
+        # input_width = 200  # Remove fixed width
 
         self.date_picker_container = QWidget()
         self.date_picker_layout = QHBoxLayout()
         self.date_picker_layout.setContentsMargins(0, 0, 0, 0)
 
         self.date_picker = QComboBox()
-        self.date_picker.setMinimumWidth(input_width)
-        self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         date_picker_info = QLabel(self.info_icon_html)
         date_picker_info.setToolTip(
             '<div style="white-space:pre-line; width:240px;">Select the date when the data was collected.</div>'
@@ -291,8 +314,7 @@ class MainWindow(QWidget):
         self.sync_time = QTimeEdit()
         self.sync_time.setDisplayFormat("HH:mm:ss")
         self.sync_time.setTime(QTime(0, 0, 0))
-        self.sync_time.setMinimumWidth(input_width)
-        self.sync_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.sync_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sync_time_info = QLabel(self.info_icon_html)
         sync_time_info.setToolTip(
             '<div style="white-space:pre-line; width:240px;">This specifies the time at which your GNSS data synchronizes with your video data. This is in a 24-hour format.</div>'
@@ -308,8 +330,7 @@ class MainWindow(QWidget):
         self.utc_offset = QComboBox()
         self.utc_offset.addItems([str(i) for i in range(-12, 13)])
         self.utc_offset.setCurrentText("0")  # Set the placeholder/default to 0
-        self.utc_offset.setMinimumWidth(input_width)
-        self.utc_offset.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.utc_offset.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         utc_offset_info = QLabel(self.info_icon_html)
         utc_offset_info.setToolTip(
             '<div style="white-space:pre-line; width:240px;">This specifies the UTC format of the GNSS data in your GNSS file. For example, if your GNSS data is in UTC+2, select 2. If it is in UTC-5, select -5.</div>'
@@ -468,15 +489,13 @@ class MainWindow(QWidget):
             if len(self.unique_dates) >= 1:
                 # Use dropdown
                 self.date_picker = QComboBox()
-                self.date_picker.setMinimumWidth(200)
-                self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
                 self.date_picker.addItems([str(d) for d in self.unique_dates])
             else:
                 # Use string input
                 self.date_picker = QLineEdit()
                 self.date_picker.setPlaceholderText("Enter date (YYYY-MM-DD)")
-                self.date_picker.setMinimumWidth(200)
-                self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
             # Always re-add the info icon
             date_picker_info = QLabel(self.info_icon_html)
@@ -499,8 +518,7 @@ class MainWindow(QWidget):
 
             self.date_picker = QLineEdit()
             self.date_picker.setPlaceholderText("")
-            self.date_picker.setMinimumWidth(200)
-            self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.date_picker.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
             date_picker_info = QLabel(self.info_icon_html)
             date_picker_info.setToolTip(
@@ -550,6 +568,7 @@ class MainWindow(QWidget):
             "video_folder": self.projects_dir.text(),
             "output_directory": self.output_dir.text(),
             "frame_resolution": self.frame_resolution.currentText(),
+            "frame_interval": self.frame_interval.text(),
             "mosaic_time": self.mosaic_time.text(),
             "starting_time": self.starting_time.text(),
             "gnss_file": self.gnss_file.text(),
@@ -636,10 +655,8 @@ class MainWindow(QWidget):
         vid_dir = data["video_folder"]
         output_dir = data["output_directory"]
         frame_res = data["frame_resolution"]
+        frame_interval = data["frame_interval"]
         date = data["date_picker"]
-        
-
-        
 
         video_res = data["frame_resolution"]
         unique_dates = data["unique_dates"]
@@ -663,7 +680,7 @@ class MainWindow(QWidget):
             last_frame = 0
             for file_name in np.sort(os.listdir(vid_dir)):
                 if os.path.splitext(file_name)[1].lower() in valid_video_types:
-                    last_frame = vid2frames(file_name, vid_dir, frames_dir, reduce=True, res=video_res, image_counter=last_frame)
+                    last_frame = vid2frames(file_name, vid_dir, frames_dir, int(frame_interval), reduce=True, res=video_res, image_counter=last_frame)
 
         if "create_mosaics" in chosen_processes:
             print("Creating Mosaics...")
@@ -866,5 +883,11 @@ if __name__ == "__main__":
         }
     """)
     window = MainWindow()
+    window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    screen = app.primaryScreen().availableGeometry()
+    default_width = screen.width()  # or any reasonable width
+    # Let Qt compute the optimal size
+    window.adjustSize()  # Let Qt compute the optimal size
+    window.move((screen.width() - default_width) // 2, 0)
     window.show()
     sys.exit(app.exec_())
