@@ -1,3 +1,10 @@
+# GNU GENERAL PUBLIC LICENSE
+# CorStitch Copyright (C) 2025  Julian Christopher L. Maypa, Johnenn R. Manalang, and Maricor N. Soriano 
+# This program comes with ABSOLUTELY NO WARRANTY;
+# This is free software, and you are welcome to redistribute it under the conditions specified in the GNU General Public License.; 
+
+
+
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QFileDialog,
     QVBoxLayout, QHBoxLayout, QCheckBox, QComboBox, QFormLayout, QDateEdit,
@@ -23,7 +30,6 @@ import matplotlib
 matplotlib.use('Agg', force = True)
 from gui_init import HMS2Conv, mosaic_creation, vid2frames, get_imgdim, GPSdata
 valid_video_types = ['.mp4', '.avi', '.mov', '.mkv']
-print("yawakko")
 r_e = 6378.137*1000
 deg2rad = np.pi/180
 rad2deg = 180/np.pi
