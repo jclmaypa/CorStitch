@@ -2,6 +2,7 @@
 # CorStitch Copyright (C) 2025  Julian Christopher L. Maypa, Johnenn R. Manalang, and Maricor N. Soriano 
 # This program comes with ABSOLUTELY NO WARRANTY;
 # This is free software, and you are welcome to redistribute it under the conditions specified in the GNU General Public License.; 
+# Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
 
 
 
