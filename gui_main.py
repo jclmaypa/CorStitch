@@ -28,7 +28,7 @@ from PIL import Image
 import imutils
 import matplotlib
 matplotlib.use('Agg', force = True)
-from gui_init import HMS2Conv, mosaic_creation, vid2frames, get_imgdim, GPSdata
+from gui_init import HMS2Conv, mosaic_creation, scan_frames, get_imgdim, GPSdata
 valid_video_types = ['.mp4', '.avi', '.mov', '.mkv']
 r_e = 6378.137*1000
 deg2rad = np.pi/180
@@ -94,9 +94,9 @@ class MainWindow(QWidget):
         projects_button.clicked.connect(self.browse_projects)
         video_folder_info = QLabel(self.info_icon_html)
         video_folder_info.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        # video_folder_info.setToolTip(
-        #     '<div style="white-space:pre-line; width:240px;">Select the folder containing the videos you want to process.</div>'
-        # )
+        video_folder_info.setToolTip(
+            '<div style="white-space:pre-line; width:240px;">Select the folder containing the videos you want to process.</div>'
+        )
         video_folder_layout.addWidget(self.projects_dir, stretch=1)
         video_folder_layout.addWidget(projects_button)
         video_folder_layout.addWidget(video_folder_info)
@@ -145,23 +145,6 @@ class MainWindow(QWidget):
 
         # Change frame_layout to QFormLayout
         frame_form = QFormLayout()
-        frame_label = QLabel("Frame resolution:")
-        frame_info = QLabel(self.info_icon_html)
-        frame_info.setToolTip(
-            '<div style="white-space:pre-line; width:240px;">This specifies the resolution of the frames that will be extracted from your videos. If you proceed to mosaic creation, the mosaics will have the same quality as your frames.</div>'
-        )
-        self.frame_resolution = QComboBox()
-        self.frame_resolution.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.frame_resolution.addItems(["360p","480p", "720p", "1080p"])
-
-        # Widget for input + info (resolution)
-        frame_widget = QWidget()
-        frame_widget_layout = QHBoxLayout()
-        frame_widget_layout.setContentsMargins(0, 0, 0, 0)
-        frame_widget_layout.addWidget(self.frame_resolution)
-        frame_widget_layout.addWidget(frame_info)
-        frame_widget.setLayout(frame_widget_layout)
-        frame_form.addRow(frame_label, frame_widget)
 
         # Frame interval (natural numbers only)
         frame_interval_label = QLabel("Frame interval:")
@@ -188,7 +171,7 @@ class MainWindow(QWidget):
         line2.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line2)
 
-        self.frame_widgets = [self.frame_resolution, self.frame_interval]
+        self.frame_widgets = [self.frame_interval]
         self.set_enabled(self.frame_widgets, False)
         self.frame_extraction_checkbox.setEnabled(False)
 
@@ -234,12 +217,53 @@ class MainWindow(QWidget):
         starting_time_widget.setLayout(starting_time_layout)
         mosaic_form.addRow("Starting video time:", starting_time_widget)
 
+        frame_label = QLabel("Frame resolution:")
+        frame_info = QLabel(self.info_icon_html)
+        frame_info.setToolTip(
+            '<div style="white-space:pre-line; width:240px;">This specifies the resolution of the frames that will be extracted from your videos. If you proceed to mosaic creation, the mosaics will have the same quality as your frames.</div>'
+        )
+
+        # Widget for input + info (resolution)
+
+        self.frame_resolution = QComboBox()
+        self.frame_resolution.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.frame_resolution.addItems(["360p","480p", "720p", "1080p"])
+
+        frame_widget = QWidget()
+        frame_widget_layout = QHBoxLayout()
+        frame_widget_layout.setContentsMargins(0, 0, 0, 0)
+        frame_widget_layout.addWidget(self.frame_resolution)
+        frame_widget_layout.addWidget(frame_info)
+        frame_widget.setLayout(frame_widget_layout)
+        mosaic_form.addRow(frame_label, frame_widget)
+
+        self.mark_length = 0
+
+        # self.mark_length = QLineEdit()
+        # self.mark_length.setText("0") 
+        # self.mark_length.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        # self.mark_length.setValidator(QIntValidator(1, 99999, self))
+
+        # mark_info = QLabel(self.info_icon_html)
+        # mark_info.setToolTip(
+        #     '<div style="white-space:pre-line; width:240px;"> This dictates the length of each mosaic in meters for scoring purposes. Each mosaic will have 20 scores per meter.</div>'
+        # )
+        # mark_length_widget = QWidget()
+        # mark_length_layout = QHBoxLayout()
+        # mark_length_layout.setContentsMargins(0, 0, 0, 0)
+        # mark_length_layout.addWidget(self.mark_length)
+        # mark_length_layout.addWidget(mark_info)
+        # mark_length_widget.setLayout(mark_length_layout)
+        # mosaic_form.addRow("Mosaic length for scoring (m):", mark_length_widget)
+
+
         mosaic_widget = QWidget()
         mosaic_widget.setLayout(mosaic_form)
         mosaic_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         layout.addWidget(mosaic_widget)
 
-        self.mosaic_widgets = [self.mosaic_time, self.starting_time]
+        # self.mosaic_widgets = [self.mosaic_time, self.starting_time, self.frame_resolution, self.mark_length]
+        self.mosaic_widgets = [self.mosaic_time, self.starting_time, self.frame_resolution]
         self.create_mosaics_checkbox.setEnabled(False)
         self.set_enabled(self.mosaic_widgets, False)
 
@@ -387,7 +411,7 @@ class MainWindow(QWidget):
             not self.output_dir.text().strip()]
         )
         self.frame_extraction_checkbox.setEnabled(not all_filled)
-        self.create_mosaics_checkbox.setEnabled(not partially_filled)
+        self.create_mosaics_checkbox.setEnabled(not all_filled)
         self.georef_checkbox.setEnabled(not partially_filled)
         
 
@@ -576,6 +600,7 @@ class MainWindow(QWidget):
             "frame_resolution": self.frame_resolution.currentText(),
             "frame_interval": self.frame_interval.text(),
             "mosaic_time": self.mosaic_time.text(),
+            # "mark_length": int(self.mark_length.text()),
             "starting_time": self.starting_time.text(),
             "gnss_file": self.gnss_file.text(),
             "time_col": self.time_col.currentText(),
@@ -670,27 +695,22 @@ class MainWindow(QWidget):
         bearing_status = data["bearing_status"]
 
         project_dir = os.path.join(output_dir, project_name)
-        frames_dir = os.path.join(project_dir, "Frames")
         mosaics_dir = os.path.join(project_dir, "Mosaics")
         georef_dir = os.path.join(project_dir, "Georeferenced")
         rect_mosaics_dir = os.path.join(georef_dir, "Rectified Mosaics")
         kmz_dir = os.path.join(georef_dir, "KMZ files")
         
-        os.makedirs(frames_dir, exist_ok=True)
         os.makedirs(mosaics_dir, exist_ok=True)
         os.makedirs(rect_mosaics_dir, exist_ok=True)
         os.makedirs(kmz_dir, exist_ok=True)
 
         if "frame_extraction" in chosen_processes:
-            print("Extracting frames...")
-            last_frame = 0
-            for file_name in np.sort(os.listdir(vid_dir)):
-                if os.path.splitext(file_name)[1].lower() in valid_video_types:
-                    last_frame = vid2frames(file_name, vid_dir, frames_dir, int(frame_interval), reduce=True, res=video_res, image_counter=last_frame)
+            print("Scanning Frames")
+            scan_frames(vid_dir, mosaics_dir, int(frame_interval), reduce=True)
 
         if "create_mosaics" in chosen_processes:
-            print("Creating Mosaics...")
-            mosaic_creation(mosaic_t, sync_vid_time, frames_dir, mosaics_dir)
+            print("Creating Mosaics")
+            mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res)
 
         if "georeference" in chosen_processes:
             if len(unique_dates) > 1:
@@ -707,15 +727,15 @@ class MainWindow(QWidget):
             lat_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lat, kind='linear', fill_value='extrapolate', bounds_error=False)
             heading_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.instr_heading, kind='linear', fill_value='extrapolate', bounds_error=False)
 
-            interp_gps_data = pd.DataFrame({"conv_time": interpolation_time})
-            interp_gps_data["lon"] = lon_interp(interpolation_time)
-            interp_gps_data["lat"] = lat_interp(interpolation_time)
-            interp_gps_data["instr_heading"] = heading_interp(interpolation_time)
+            # interp_gps_data = pd.DataFrame({"conv_time": interpolation_time})
+            # interp_gps_data["lon"] = lon_interp(interpolation_time)
+            # interp_gps_data["lat"] = lat_interp(interpolation_time)
+            # interp_gps_data["instr_heading"] = heading_interp(interpolation_time)
 
             if depth_status == 1:
                 depth_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.dep_m, kind='linear', fill_value='extrapolate', bounds_error=False)
-                interp_gps_data["dep_m"] = depth_interp(interpolation_time)
-            interp_gps_data['sync_time'] = interp_gps_data.conv_time - interp_gps_data.conv_time.min()
+                # interp_gps_data["dep_m"] = depth_interp(interpolation_time)
+            # interp_gps_data['sync_time'] = interp_gps_data.conv_time - interp_gps_data.conv_time.min()
 
             print("Georeferencing images...")
             with open(os.path.join(mosaics_dir, "mosaics_data.txt"), 'r') as file:
@@ -726,44 +746,49 @@ class MainWindow(QWidget):
             if num_mosaics == 0:
                 print("No mosaics detected for this project. No images can be georeferenced")
             else:
-                mosaic_end = int(np.floor(mosaic_t/interp_inc))
-                mosaic_boundaries = np.arange(0, mosaic_end*num_mosaics+mosaic_end, mosaic_end)
+                
+                # mosaic_end = int(np.floor(mosaic_t/interp_inc))
+                # mosaic_boundaries = np.arange(0, mosaic_end*num_mosaics+mosaic_end, mosaic_end)
                 kmz_limit = 100
                 img_counter = 0
                 kmz_counter = 0
-                mosaics = np.arange(0, num_mosaics, 1)
+                # mosaics = np.arange(0, num_mosaics, 1)
                 kml = simplekml.Kml()
                 depth = 0
-                if depth_status == 1:
-                    width_m = 1.55948 * (np.mean(interp_gps_data.dep_m[mosaic_boundaries[0]: mosaic_boundaries[-1]]))
-                else:
+                if depth_status == 0:
                     width_m = 5
-                for i in range(0, len(mosaic_boundaries)-1):
-                    start = mosaic_boundaries[i]
-                    end = mosaic_boundaries[i+1]
+                mosaic_boundaries = pd.read_csv(os.path.join(mosaics_dir, "mosaic_time_boundaries.csv"))
+                start_times = mosaic_boundaries['start_time_ms'].tolist()
+                end_times = mosaic_boundaries['end_time_ms'].tolist()
+                time_sync = np.min(gps_data.conv_time)
+                for i in range(len(mosaic_boundaries)):
+                        
+                    start = start_times[i] + time_sync
+                    end = end_times[i] + time_sync
                     mid = start + (end-start)//2
-                    icon_path = os.path.join(mosaics_dir, f"{mosaics[i]}.png")
-                    lpx, wpx = get_imgdim(icon_path)
 
-                    headings = interp_gps_data.instr_heading.iloc[start]
+                    mosaic_name = int(i)
+                    icon_path = os.path.join(mosaics_dir, f"{mosaic_name}.png")
+                    lpx, wpx = get_imgdim(icon_path)
+                    headings = heading_interp(start)
                     try:
-                        headinge = interp_gps_data.instr_heading.iloc[end]
+                        headinge = heading_interp(end)
                     except:
                         print("Could not georeference all mosaics due to the lack of GPS data.")
                         break
-                    heading = interp_gps_data.instr_heading.iloc[mid]
+                    heading = heading_interp(mid)
 
-                    lat_s = interp_gps_data.lat.iloc[start]
-                    lon_s = interp_gps_data.lon.iloc[start]
-                    lat_e = interp_gps_data.lat.iloc[end]
-                    lon_e = interp_gps_data.lon.iloc[end]
-                    lat_m = interp_gps_data.lat.iloc[mid]
-                    lon_m = interp_gps_data.lon.iloc[mid]
+                    lat_s = lat_interp(start)
+                    lon_s = lon_interp(start)
+                    lat_e = lat_interp(end)
+                    lon_e = lon_interp(end)
+                    lat_m = lat_interp(mid)
+                    lon_m = lon_interp(mid)
 
                     if depth_status == 1:
-                        depth = np.mean(interp_gps_data.dep_m[start:end+1])
-                        wm = 1.55948 * depth
-                        px2m = wm / wpx
+                        depth = np.mean(depth_interp(np.linspace(start, end, 1000)))
+                        width_m = 1.55948 * depth
+                        px2m = width_m / wpx
                         scalebar = ScaleBar(dx=px2m,
                                             units='m',
                                             fixed_value=1,
@@ -773,7 +798,7 @@ class MainWindow(QWidget):
                                                             'weight': 'semibold',
                                                             'size': 20})
                         
-                    img = np.array(Image.open(os.path.join(mosaics_dir, f"{mosaics[i]}.png")))[:, :, 0:3]
+                    img = np.array(Image.open(os.path.join(mosaics_dir, f"{mosaic_name}.png")))[:, :, 0:3]
                     img = imutils.rotate_bound(img, angle=heading)
                     non_black_rows = np.any(img != [0, 0, 0], axis=(1, 2))
                     non_black_columns = np.any(img != [0, 0, 0], axis=(0, 2))
@@ -782,7 +807,7 @@ class MainWindow(QWidget):
                     rlpx, rwpx = img.shape[0], img.shape[1]
                     fig, ax = plt.subplots(figsize=(20, 20))
                     img_desc = '\n'.join((
-                        r'mosaic no. %.0f' % (i),
+                        r'mosaic no. %.0f' % (mosaic_name),
                         r'date: %s' % (date),
                         r'lat.: %.8f°' % (lat_m),
                         r'lon.: %.8f°' % (lon_m),
@@ -797,69 +822,54 @@ class MainWindow(QWidget):
                         plt.gca().add_artist(scalebar)
                     ax.set_axis_off()
 
-                    fig.savefig(os.path.join(rect_mosaics_dir, f"{mosaics[i]}.jpg"), bbox_inches='tight')
+                    fig.savefig(os.path.join(rect_mosaics_dir, f"{mosaic_name}.jpg"), bbox_inches='tight')
                     plt.close('all')
                     gc.collect()
 
-                    point = kml.newpoint(name=f"{mosaics[i]}", coords=[(lon_m, lat_m)])
-                    picpath = kml.addfile(os.path.join(rect_mosaics_dir, f"{i}.jpg"))
+                    point = kml.newpoint(name=f"{mosaic_name}", coords=[(lon_m, lat_m)])
+                    picpath = kml.addfile(os.path.join(rect_mosaics_dir, f"{mosaic_name}.jpg"))
                     img_desc = f'<img src="{picpath}" alt="picture" width="{rwpx}" height="{rlpx}" align="left" />'
                     point.style.balloonstyle.text = img_desc
 
-                    ground = kml.newgroundoverlay(name=f"{mosaics[i]}.png")
+                    ground = kml.newgroundoverlay(name=f"{mosaic_name}.png")
                     ground.icon.href = icon_path
-                    ground.description = f"{mosaics[i]}.png\nheading: {heading}"
+                    ground.description = f"{mosaic_name}.png\nheading: {heading}"
 
-                    if (heading >= 270 and heading <= 360) or (heading >= 0 and heading <= 90):
-                        dxs = -0.5 * width_m * np.cos(headings * deg2rad)
-                        dys = -0.5 * width_m * np.sin(headings * deg2rad)
-                        dx2s = -dxs
-                        dy2s = -dys
-                        dxe = -0.5 * width_m * np.cos(headinge * deg2rad)
-                        dye = -0.5 * width_m * np.sin(headinge * deg2rad)
-                        dx2e = -dxe
-                        dy2e = -dye
+                    # if (heading >= 270 and heading <= 360) or (heading >= 0 and heading <= 90):
+                    # radians
+                    perp_s = (headings + 90.0) * deg2rad
+                    perp_e = (headinge + 90.0) * deg2rad
 
-                        tr_lon = lon_s + (dxs / r_e) * (rad2deg) / np.cos(lat_s * deg2rad)
-                        tr_lat = lat_s + (dys / r_e) * (rad2deg)
-                        tl_lon = lon_s + (dx2s / r_e) * (rad2deg) / np.cos(lat_s * deg2rad)
-                        tl_lat = lat_s + (dy2s / r_e) * (rad2deg)
-                        bl_lon = lon_e + (dx2e / r_e) * (rad2deg) / np.cos(lat_e * deg2rad)
-                        bl_lat = lat_e + (dy2e / r_e) * (rad2deg)
-                        br_lon = lon_e + (dxe / r_e) * (rad2deg) / np.cos(lat_e * deg2rad)
-                        br_lat = lat_e + (dye / r_e) * (rad2deg)
+                    dxs = 0.5 * width_m * np.sin(perp_s)   
+                    dys = 0.5 * width_m * np.cos(perp_s)   
+                    dx2s = -dxs
+                    dy2s = -dys
 
-                        if br_lon < bl_lon:
-                            bl_lon, br_lon = br_lon, bl_lon
-                        if tr_lon < tl_lon:
-                            tl_lon, tr_lon = tr_lon, tl_lon
+                    dxe = 0.5 * width_m * np.sin(perp_e)
+                    dye = 0.5 * width_m * np.cos(perp_e)
+                    dx2e = -dxe
+                    dy2e = -dye
 
-                        ground.gxlatlonquad.coords = [(tl_lon, tl_lat), (tr_lon, tr_lat), (br_lon, br_lat), (bl_lon, bl_lat)]
-                    else:
-                        dxs = 0.5 * width_m * np.cos(headings * deg2rad)
-                        dys = 0.5 * width_m * np.sin(headings * deg2rad)
-                        dx2s = -dxs
-                        dy2s = -dys
-                        dxe = 0.5 * width_m * np.cos(headinge * deg2rad)
-                        dye = 0.5 * width_m * np.sin(headinge * deg2rad)
-                        dx2e = -dxe
-                        dy2e = -dye
+                    # meters → lat/lon
+                    tr_lon = lon_s + (dxs / (r_e * np.cos(lat_s * deg2rad))) * rad2deg
+                    tr_lat = lat_s + (dys / r_e) * rad2deg
 
-                        tr_lon = lon_s + (dxs / r_e) * (rad2deg) / np.cos(lat_s * deg2rad)
-                        tr_lat = lat_s + (dys / r_e) * (rad2deg)
-                        tl_lon = lon_s + (dx2s / r_e) * (rad2deg) / np.cos(lat_s * deg2rad)
-                        tl_lat = lat_s + (dy2s / r_e) * (rad2deg)
-                        bl_lon = lon_e + (dx2e / r_e) * (rad2deg) / np.cos(lat_e * deg2rad)
-                        bl_lat = lat_e + (dy2e / r_e) * (rad2deg)
-                        br_lon = lon_e + (dxe / r_e) * (rad2deg) / np.cos(lat_e * deg2rad)
-                        br_lat = lat_e + (dye / r_e) * (rad2deg)
+                    tl_lon = lon_s + (dx2s / (r_e * np.cos(lat_s * deg2rad))) * rad2deg
+                    tl_lat = lat_s + (dy2s / r_e) * rad2deg
 
-                        if br_lon < bl_lon:
-                            bl_lon, br_lon = br_lon, bl_lon
-                        if tr_lon < tl_lon:
-                            tl_lon, tr_lon = tr_lon, tl_lon
+                    br_lon = lon_e + (dxe / (r_e * np.cos(lat_e * deg2rad))) * rad2deg
+                    br_lat = lat_e + (dye / r_e) * rad2deg
 
-                        ground.gxlatlonquad.coords = [(tr_lon, tr_lat), (tl_lon, tl_lat), (bl_lon, bl_lat), (br_lon, br_lat)]
+                    bl_lon = lon_e + (dx2e / (r_e * np.cos(lat_e * deg2rad))) * rad2deg
+                    bl_lat = lat_e + (dy2e / r_e) * rad2deg
+
+                    ground.gxlatlonquad.coords = [
+                        (tl_lon, tl_lat),
+                        (tr_lon, tr_lat),
+                        (br_lon, br_lat),
+                        (bl_lon, bl_lat)
+                    ]
+
 
                     img_counter += 1
                     if img_counter % kmz_limit == 0:
@@ -875,6 +885,7 @@ class MainWindow(QWidget):
         print(f"You may access the processed data in the Outputs -> {project_dir}")
         print("Total runtime: ", np.round(time.time() - start_time, 2), "s")
         print("You can now safely exit the application.")
+        time.sleep(180)
     
 
 if __name__ == "__main__":
