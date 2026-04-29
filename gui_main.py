@@ -2,9 +2,6 @@
 # CorStitch Copyright (C) 2025  Julian Christopher L. Maypa, Johnenn R. Manalang, and Maricor N. Soriano 
 # This program comes with ABSOLUTELY NO WARRANTY;
 # This is free software, and you are welcome to redistribute it under the conditions specified in the GNU General Public License.; 
-# Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
-
-
 
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QFileDialog,
@@ -17,19 +14,15 @@ from PyQt5.QtGui import QIntValidator
 import sys
 import numpy as np
 import gc
-import simplekml
 import scipy as sp
 import os
 import time
 import copy
-import matplotlib.pyplot as plt
-from matplotlib_scalebar.scalebar import ScaleBar
 import pandas as pd
 from PIL import Image
-import imutils
 import matplotlib
 matplotlib.use('Agg', force = True)
-from gui_init import HMS2Conv, mosaic_creation, scan_frames, get_imgdim, GPSdata
+from gui_init import HMS2Conv, georeference, mosaic_creation, scan_frames, get_imgdim, GPSdata
 valid_video_types = ['.mp4', '.avi', '.mov', '.mkv']
 r_e = 6378.137*1000
 deg2rad = np.pi/180
@@ -139,8 +132,8 @@ class MainWindow(QWidget):
         line1.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line1)
 
-        # Frame Extraction
-        self.frame_extraction_checkbox = QCheckBox("Frame extraction – Extracts the frames from your project videos")
+        # Frame Scanning
+        self.frame_extraction_checkbox = QCheckBox("Frame scanning – Scans for the usable frames from your project videos")
         self.frame_extraction_checkbox.stateChanged.connect(self.toggle_frame_extraction)
         layout.addWidget(self.frame_extraction_checkbox)
 
@@ -155,7 +148,7 @@ class MainWindow(QWidget):
         self.frame_interval.setValidator(QIntValidator(1, 99999, self))  # Only allow natural numbers
         frame_interval_info = QLabel(self.info_icon_html)
         frame_interval_info.setToolTip(
-            '<div style="white-space:pre-line; width:240px;">This specifies the interval at which frames are extracted from your videos. For example, an input of 5 will extract every 5th frame.</div>'
+            '<div style="white-space:pre-line; width:240px;">This specifies the interval at which frames are used from your videos. For example, an input of 5 will extract every 5th frame. To use all frames, set this to 1.</div>'
         )
         frame_interval_widget = QWidget()
         frame_interval_layout = QHBoxLayout()
@@ -187,16 +180,12 @@ class MainWindow(QWidget):
         # Mosaic time (positive integers only)
         self.mosaic_time = QLineEdit()
         self.mosaic_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.mosaic_time.setValidator(QIntValidator(1, 99999, self))  # Only allow positive integers
-
-        # Starting time (positive integers only, or 0 if you want to allow zero)
-        self.starting_time = QLineEdit()
-        self.starting_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.starting_time.setValidator(QIntValidator(0, 99999, self))  # Allow zero and positive integers
+        self.mosaic_time.setText("0")
+        self.mosaic_time.setValidator(QIntValidator(0, 99999, self))  # Only allow positive integers
 
         mosaic_time_info = QLabel(self.info_icon_html)
         mosaic_time_info.setToolTip(
-            '<div style="white-space:pre-line; width:240px;">This sets the length of your mosaics. For example, an input of \'5\' would mean each mosaic uses at most 5 seconds worth of video frames.</div>'
+            '<div style="white-space:pre-line; width:240px;">This sets the length of your mosaics. For example, an input of \'5\' would mean each mosaic uses at most 5 seconds worth of video frames. To use the whole video, set this to 0.</div>'
         )
         mosaic_time_widget = QWidget()
         mosaic_time_layout = QHBoxLayout()
@@ -205,6 +194,13 @@ class MainWindow(QWidget):
         mosaic_time_layout.addWidget(mosaic_time_info)
         mosaic_time_widget.setLayout(mosaic_time_layout)
         mosaic_form.addRow("Mosaic time (seconds):", mosaic_time_widget)
+
+
+        # Starting time (positive integers only, or 0 if you want to allow zero)
+        self.starting_time = QLineEdit()
+        self.starting_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.starting_time.setText("0")
+        self.starting_time.setValidator(QIntValidator(0, 99999, self))  # Allow zero and positive integers
 
         starting_time_info = QLabel(self.info_icon_html)
         starting_time_info.setToolTip(
@@ -237,8 +233,6 @@ class MainWindow(QWidget):
         frame_widget_layout.addWidget(frame_info)
         frame_widget.setLayout(frame_widget_layout)
         mosaic_form.addRow(frame_label, frame_widget)
-
-        self.mark_length = 0
 
         # self.mark_length = QLineEdit()
         # self.mark_length.setText("0") 
@@ -358,21 +352,56 @@ class MainWindow(QWidget):
         sync_time_widget.setLayout(sync_time_layout)
         time_form.addRow("GNSS Synchronization time:", sync_time_widget)
 
-        self.utc_offset = QComboBox()
-        self.utc_offset.addItems([str(i) for i in range(-12, 13)])
-        self.utc_offset.setCurrentText("0")  # Set the placeholder/default to 0
-        self.utc_offset.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        utc_offset_info = QLabel(self.info_icon_html)
-        utc_offset_info.setToolTip(
-            '<div style="white-space:pre-line; width:240px;">This specifies the UTC format of the GNSS data in your GNSS file. For example, if your GNSS data is in UTC+2, select 2. If it is in UTC-5, select -5.</div>'
+        # self.utc_offset = QComboBox()
+        # self.utc_offset.addItems([str(i) for i in range(-12, 13)])
+        # self.utc_offset.setCurrentText("0")  # Set the placeholder/default to 0
+        # self.utc_offset.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        # utc_offset_info = QLabel(self.info_icon_html)
+        # utc_offset_info.setToolTip(
+        #     '<div style="white-space:pre-line; width:240px;">This subtracts from your local time to match the UTC time in your GNSS data. For example, if your GNSS data is in UTC+0 and your local time is UTC+8, select 8. If your GNSS data already matches with your local time, select 0.</div>'
+        # )
+        # utc_offset_widget = QWidget()
+        # utc_offset_layout = QHBoxLayout()
+        # utc_offset_layout.setContentsMargins(0, 0, 0, 0)
+        # utc_offset_layout.addWidget(self.utc_offset)
+        # utc_offset_layout.addWidget(utc_offset_info)
+        # utc_offset_widget.setLayout(utc_offset_layout)
+        # time_form.addRow("UTC offset in your GNSS data:", utc_offset_widget)
+
+
+        self.GNSS_time_format = QComboBox()
+        self.GNSS_time_format.addItems([str(i) for i in range(-12, 13)])
+        self.GNSS_time_format.setCurrentText("0")  # Set the placeholder/default to 0
+        self.GNSS_time_format.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        GNSS_time_format_info = QLabel(self.info_icon_html)
+        GNSS_time_format_info.setToolTip(
+            '<div style="white-space:pre-line; width:240px;"> This specifies the time zone offset for your GNSS data. If your GNSS data is in the UTC+0 time zone, select 0. You may select 0 if you used a gpx file.</div>'
         )
-        utc_offset_widget = QWidget()
-        utc_offset_layout = QHBoxLayout()
-        utc_offset_layout.setContentsMargins(0, 0, 0, 0)
-        utc_offset_layout.addWidget(self.utc_offset)
-        utc_offset_layout.addWidget(utc_offset_info)
-        utc_offset_widget.setLayout(utc_offset_layout)
-        time_form.addRow("UTC offset in your GNSS data:", utc_offset_widget)
+        GNSS_time_format_widget = QWidget()
+        GNSS_time_format_layout = QHBoxLayout()
+        GNSS_time_format_layout.setContentsMargins(0, 0, 0, 0)
+        GNSS_time_format_layout.addWidget(self.GNSS_time_format)
+        GNSS_time_format_layout.addWidget(GNSS_time_format_info)
+        GNSS_time_format_widget.setLayout(GNSS_time_format_layout)
+        time_form.addRow("GNSS time format:", GNSS_time_format_widget)
+
+        self.local_time_format = QComboBox()
+        self.local_time_format.addItems([str(i) for i in range(-12, 13)])
+        self.local_time_format.setCurrentText("8")  # Set the placeholder/default to 0
+        self.local_time_format.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        local_time_format_info = QLabel(self.info_icon_html)
+        local_time_format_info.setToolTip(
+            '<div style="white-space:pre-line; width:240px;"> This specifies the time zone offset for your local time. For example, the Philippines has a time zone offset of UTC+8, so select 8.</div>'
+        )
+        local_time_format_widget = QWidget()
+        local_time_format_layout = QHBoxLayout()
+        local_time_format_layout.setContentsMargins(0, 0, 0, 0)
+        local_time_format_layout.addWidget(self.local_time_format)
+        local_time_format_layout.addWidget(local_time_format_info)
+        local_time_format_widget.setLayout(local_time_format_layout)
+        time_form.addRow("Local time format:", local_time_format_widget)
+
+        
 
         layout.addLayout(time_form)
 
@@ -386,11 +415,12 @@ class MainWindow(QWidget):
             self.check_columns_button, 
             self.date_picker,
             self.sync_time, 
-            self.utc_offset
+            self.GNSS_time_format,
+            self.local_time_format
         ]
         self.georef_widgets_part1 = [self.gnss_file, gnss_browse]
         self.georef_widgets_part2 = [ self.time_col, self.lat_col, self.lon_col, self.depth_col, self.bearing_col, self.check_columns_button, ]
-        self.georef_widgets_part3 = [self.date_picker, self.sync_time, self.utc_offset]
+        self.georef_widgets_part3 = [self.date_picker, self.sync_time, self.GNSS_time_format, self.local_time_format]
         self.set_enabled(self.georef_widgets, False)
         self.georef_checkbox.setEnabled(False)
 
@@ -538,7 +568,7 @@ class MainWindow(QWidget):
             self.date_picker_layout.addWidget(date_picker_info)
         else:
             self.raw_data.date_time_split(splitting=False)
-            self.unique_dates = 0
+            self.unique_dates = []
 
             # Remove all widgets from date_picker_layout
             while self.date_picker_layout.count():
@@ -553,7 +583,7 @@ class MainWindow(QWidget):
 
             date_picker_info = QLabel(self.info_icon_html)
             date_picker_info.setToolTip(
-                '<div style="white-space:pre-line; width:240px;">Select the date when the data was collected. You may choose any date format convenient to you.</div>'
+                '<div style="white-space:pre-line; width:240px;">Select the date when the data was collected. You may choose any date format convenient to you (e.g. July 12, 2024). </div>'
             )
 
             self.date_picker_layout.addWidget(self.date_picker)
@@ -563,7 +593,7 @@ class MainWindow(QWidget):
         self.georef_part2 = True
         self.set_enabled(self.georef_widgets_part3, True)
         # Update georef_widgets_part3 to avoid referencing deleted widgets
-        self.georef_widgets_part3 = [self.date_picker, self.sync_time, self.utc_offset]
+        self.georef_widgets_part3 = [self.date_picker, self.sync_time, self.GNSS_time_format, self.local_time_format]
 
 
     def show_custom_popup(self, message, title = "Message"):
@@ -601,7 +631,6 @@ class MainWindow(QWidget):
             "frame_resolution": self.frame_resolution.currentText(),
             "frame_interval": self.frame_interval.text(),
             "mosaic_time": self.mosaic_time.text(),
-            # "mark_length": int(self.mark_length.text()),
             "starting_time": self.starting_time.text(),
             "gnss_file": self.gnss_file.text(),
             "time_col": self.time_col.currentText(),
@@ -609,15 +638,15 @@ class MainWindow(QWidget):
             "lon_col": self.lon_col.currentText(),
             "depth_col": self.depth_col.currentText(),
             "bearing_col": self.bearing_col.currentText(),
-            "utc_offset": self.utc_offset.currentText(),
+            "utc_offset": int(self.GNSS_time_format.currentText()) - int(self.local_time_format.currentText()),
         }
 
         if "georeference" in self.chosen_processes:
             if self.georef_part2 == True:
-                data["sync_time"] = self.sync_time.time().toString("HH:mm:ss"),
+                data["sync_time"] = self.sync_time.time().toString("HH:mm:ss")
                 data["date_picker"] = self.date_value
-                data["unique_dates"] = self.unique_dates,
-                data["depth_status"] = self.raw_data.depth_status,
+                data["unique_dates"] = self.unique_dates
+                data["depth_status"] = self.raw_data.depth_status
                 data["bearing_status"] = self.raw_data.heading_status
             else:
                 data["sync_time"] = " "
@@ -678,9 +707,9 @@ class MainWindow(QWidget):
             sync_vid_time = int(data["starting_time"])
         if "georeference" in chosen_processes:
             utc_offset = int(data["utc_offset"])
-            sync_UTC_time = str(data["sync_time"][0])
+            sync_UTC_time = str(data["sync_time"])
             sync_UTC_time = datetime.datetime.strptime(sync_UTC_time,'%H:%M:%S')
-            sync_UTC_time = sync_UTC_time + datetime.timedelta(hours = - 8 + utc_offset)
+            sync_UTC_time = sync_UTC_time + datetime.timedelta(hours = - utc_offset)
             sync_UTC_time = sync_UTC_time.strftime("%H:%M:%S")
 
         project_name = data["project_name"]
@@ -691,9 +720,6 @@ class MainWindow(QWidget):
         date = data["date_picker"]
 
         video_res = data["frame_resolution"]
-        unique_dates = data["unique_dates"]
-        depth_status = data["depth_status"][0]
-        bearing_status = data["bearing_status"]
 
         project_dir = os.path.join(output_dir, project_name)
         mosaics_dir = os.path.join(project_dir, "Mosaics")
@@ -707,186 +733,16 @@ class MainWindow(QWidget):
 
         if "frame_extraction" in chosen_processes:
             print("Scanning Frames")
-            scan_frames(vid_dir, mosaics_dir, int(frame_interval), reduce=True)
+            scan_frames(vid_dir, mosaics_dir, int(frame_interval))
 
         if "create_mosaics" in chosen_processes:
             print("Creating Mosaics")
+            if mosaic_t == 0:
+                mosaic_t = 9999999999
             mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res)
 
         if "georeference" in chosen_processes:
-            if len(unique_dates) > 1:
-                gps_data = gps_data[gps_data.date != date.index]
-
-            gps_data["conv_time"] = gps_data.time.apply(HMS2Conv)
-
-            if len(gps_data[gps_data.time <= sync_UTC_time].index) <= 0:
-                print("WARNING: No data points were removed during GPS and Video synchronization. This could mean that GPS data collection started after the synchronization time.")
-            gps_data = gps_data[gps_data.time >= sync_UTC_time].reset_index(drop=True)
-            interp_inc = 1
-            interpolation_time = np.arange(np.min(gps_data.conv_time), np.max(gps_data.conv_time)+interp_inc, interp_inc)
-            lon_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lon, kind='linear', fill_value='extrapolate', bounds_error=False)
-            lat_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lat, kind='linear', fill_value='extrapolate', bounds_error=False)
-            heading_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.instr_heading, kind='linear', fill_value='extrapolate', bounds_error=False)
-
-            # interp_gps_data = pd.DataFrame({"conv_time": interpolation_time})
-            # interp_gps_data["lon"] = lon_interp(interpolation_time)
-            # interp_gps_data["lat"] = lat_interp(interpolation_time)
-            # interp_gps_data["instr_heading"] = heading_interp(interpolation_time)
-
-            if depth_status == 1:
-                depth_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.dep_m, kind='linear', fill_value='extrapolate', bounds_error=False)
-                # interp_gps_data["dep_m"] = depth_interp(interpolation_time)
-            # interp_gps_data['sync_time'] = interp_gps_data.conv_time - interp_gps_data.conv_time.min()
-
-            print("Georeferencing images...")
-            with open(os.path.join(mosaics_dir, "mosaics_data.txt"), 'r') as file:
-                mosaic_data = file.readline()
-            mosaic_data = eval(mosaic_data)
-            mosaic_t = mosaic_data["mosaic_time"]
-            num_mosaics = mosaic_data["num_mosaics"]
-            if num_mosaics == 0:
-                print("No mosaics detected for this project. No images can be georeferenced")
-            else:
-                
-                # mosaic_end = int(np.floor(mosaic_t/interp_inc))
-                # mosaic_boundaries = np.arange(0, mosaic_end*num_mosaics+mosaic_end, mosaic_end)
-                kmz_limit = 100
-                img_counter = 0
-                kmz_counter = 0
-                # mosaics = np.arange(0, num_mosaics, 1)
-                kml = simplekml.Kml()
-                depth = 0
-                if depth_status == 0:
-                    width_m = 5
-                mosaic_boundaries = pd.read_csv(os.path.join(mosaics_dir, "mosaic_time_boundaries.csv"))
-                start_times = mosaic_boundaries['start_time_ms'].tolist()
-                end_times = mosaic_boundaries['end_time_ms'].tolist()
-                time_sync = np.min(gps_data.conv_time)
-                for i in range(len(mosaic_boundaries)):
-                        
-                    start = start_times[i] + time_sync
-                    end = end_times[i] + time_sync
-                    mid = start + (end-start)//2
-
-                    mosaic_name = int(i)
-                    icon_path = os.path.join(mosaics_dir, f"{mosaic_name}.png")
-                    lpx, wpx = get_imgdim(icon_path)
-                    headings = heading_interp(start)
-                    try:
-                        headinge = heading_interp(end)
-                    except:
-                        print("Could not georeference all mosaics due to the lack of GPS data.")
-                        break
-                    heading = heading_interp(mid)
-
-                    lat_s = lat_interp(start)
-                    lon_s = lon_interp(start)
-                    lat_e = lat_interp(end)
-                    lon_e = lon_interp(end)
-                    lat_m = lat_interp(mid)
-                    lon_m = lon_interp(mid)
-
-                    if depth_status == 1:
-                        depth = np.mean(depth_interp(np.linspace(start, end, 1000)))
-                        width_m = 1.55948 * depth
-                        px2m = width_m / wpx
-                        scalebar = ScaleBar(dx=px2m,
-                                            units='m',
-                                            fixed_value=1,
-                                            fixed_units='m',
-                                            location="lower left",
-                                            font_properties={'family': 'monospace',
-                                                            'weight': 'semibold',
-                                                            'size': 20})
-                        
-                    img = np.array(Image.open(os.path.join(mosaics_dir, f"{mosaic_name}.png")))[:, :, 0:3]
-                    img = imutils.rotate_bound(img, angle=heading)
-                    non_black_rows = np.any(img != [0, 0, 0], axis=(1, 2))
-                    non_black_columns = np.any(img != [0, 0, 0], axis=(0, 2))
-                    img = img[non_black_rows, :]
-                    img = img[:, non_black_columns]
-                    rlpx, rwpx = img.shape[0], img.shape[1]
-                    fig, ax = plt.subplots(figsize=(20, 20))
-                    img_desc = '\n'.join((
-                        r'mosaic no. %.0f' % (mosaic_name),
-                        r'date: %s' % (date),
-                        r'lat.: %.8f°' % (lat_m),
-                        r'lon.: %.8f°' % (lon_m),
-                        r'bearing: %.2f°' % (heading),
-                        r'ave. depth: %.3f' % (depth),
-                    ))
-
-                    ax.imshow(img)
-                    ax.set_title(img_desc, loc="left", fontsize=30)
-                    plt.gca().set_aspect('equal', adjustable='box')
-                    if depth_status == 1:
-                        plt.gca().add_artist(scalebar)
-                    ax.set_axis_off()
-
-                    fig.savefig(os.path.join(rect_mosaics_dir, f"{mosaic_name}.jpg"), bbox_inches='tight')
-                    plt.close('all')
-                    gc.collect()
-
-                    point = kml.newpoint(name=f"{mosaic_name}", coords=[(lon_m, lat_m)])
-                    picpath = kml.addfile(os.path.join(rect_mosaics_dir, f"{mosaic_name}.jpg"))
-                    img_desc = f'<img src="{picpath}" alt="picture" width="{rwpx}" height="{rlpx}" align="left" />'
-                    point.style.balloonstyle.text = img_desc
-
-                    ground = kml.newgroundoverlay(name=f"{mosaic_name}.png")
-                    ground.icon.href = icon_path
-                    ground.description = f"{mosaic_name}.png\nheading: {heading}"
-
-                    # if (heading >= 270 and heading <= 360) or (heading >= 0 and heading <= 90):
-                    # radians
-                    perp_s = (headings + 90.0) * deg2rad
-                    perp_e = (headinge + 90.0) * deg2rad
-
-                    dxs = 0.5 * width_m * np.sin(perp_s)   
-                    dys = 0.5 * width_m * np.cos(perp_s)   
-                    dx2s = -dxs
-                    dy2s = -dys
-
-                    dxe = 0.5 * width_m * np.sin(perp_e)
-                    dye = 0.5 * width_m * np.cos(perp_e)
-                    dx2e = -dxe
-                    dy2e = -dye
-
-                    # meters → lat/lon
-                    tr_lon = lon_s + (dxs / (r_e * np.cos(lat_s * deg2rad))) * rad2deg
-                    tr_lat = lat_s + (dys / r_e) * rad2deg
-
-                    tl_lon = lon_s + (dx2s / (r_e * np.cos(lat_s * deg2rad))) * rad2deg
-                    tl_lat = lat_s + (dy2s / r_e) * rad2deg
-
-                    br_lon = lon_e + (dxe / (r_e * np.cos(lat_e * deg2rad))) * rad2deg
-                    br_lat = lat_e + (dye / r_e) * rad2deg
-
-                    bl_lon = lon_e + (dx2e / (r_e * np.cos(lat_e * deg2rad))) * rad2deg
-                    bl_lat = lat_e + (dy2e / r_e) * rad2deg
-
-                    ground.gxlatlonquad.coords = [
-                        (tl_lon, tl_lat),
-                        (tr_lon, tr_lat),
-                        (br_lon, br_lat),
-                        (bl_lon, bl_lat)
-                    ]
-
-
-                    img_counter += 1
-                    if img_counter % kmz_limit == 0:
-                        kml.savekmz(os.path.join(kmz_dir, f"{kmz_counter}.kmz"))
-                        print(f"Created: {kmz_counter}.kmz")
-                        kml = simplekml.Kml()
-                        kmz_counter += 1
-                if img_counter % kmz_limit != 0:
-                    kml.savekmz(os.path.join(kmz_dir, f"{kmz_counter}.kmz"))
-                    print(f"Created: {kmz_counter}.kmz")
-
-        print("All selected processes are complete!")
-        print(f"You may access the processed data in the Outputs -> {project_dir}")
-        print("Total runtime: ", np.round(time.time() - start_time, 2), "s")
-        print("You can now safely exit the application.")
-        time.sleep(180)
+            georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir)
     
 
 if __name__ == "__main__":

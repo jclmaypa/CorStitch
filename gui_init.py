@@ -18,6 +18,10 @@ import gc
 from alive_progress import alive_bar
 from pyfftw.interfaces.numpy_fft import fft2, ifft2, fftshift
 import pyfftw
+import simplekml
+import imutils
+import matplotlib.pyplot as plt
+from matplotlib_scalebar.scalebar import ScaleBar
 pyfftw.interfaces.cache.enable()
 NUM_THREADS = max(1, os.cpu_count() - 1)
 
@@ -166,10 +170,8 @@ class GPSdata():
         # add synch time
 
 
-def scan_frames(vid_dir, mosaics_dir, frame_interval, reduce = False):
+def scan_frames(vid_dir, mosaics_dir, frame_interval):
     currentframe = 0 
-
-    
 
     all_fps = []
     for file_name in os.listdir(vid_dir):
@@ -198,20 +200,34 @@ def scan_frames(vid_dir, mosaics_dir, frame_interval, reduce = False):
             cam = cv2.VideoCapture(os.path.join(vid_dir, file_name))
             property_id = int(cv2.CAP_PROP_FRAME_COUNT)  
             length = int(cv2.VideoCapture.get(cam, property_id)) 
-            with alive_bar(length, title = f"Scanning frames in {file_name}") as bar:
+            with alive_bar(length, title=f"Scanning frames in {file_name}") as bar:
                 for i in range(length):
-                    ret,frame = cam.read()  
+                    ret, frame = cam.read()
 
-                    while ret == False and frame_location <= length:
-                        ret,frame = cam.read()
+                    # Retry until frame is valid (with safety break)
+                    retry_count = 0
+                    while not ret and retry_count < 10:
+                        ret, frame = cam.read()
                         frame_location += 1
-                    
-                    if frame_location >= length:
-                        break
+                        retry_count += 1
+
+                    if not ret:
+                        # Skip this frame if still invalid after retries
+                        currentframe += 1
+                        frame_location += 1
+                        bar()
+                        continue
 
                     timestamp_ms = cam.get(cv2.CAP_PROP_POS_MSEC)
+
                     if currentframe % frame_interval == 0:
-                        rows.append([currentframe, frame_location, file_name, float(timestamp_ms)])
+                        rows.append([
+                            currentframe,
+                            frame_location,
+                            file_name,
+                            float(timestamp_ms)
+                        ])
+
                     currentframe += 1
                     frame_location += 1
                     bar()
@@ -300,7 +316,7 @@ def mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res):
     frame_count = 0
     end_time = 0
     accumulated_time = 0
-    mosaic_time_boundaries = pd.DataFrame(columns = ["mosaic_number", "start_time_ms", "end_time_ms"])
+    mosaic_time_boundaries = pd.DataFrame(columns = ["mosaic_number", "start_time_s", "end_time_s"])
 
 
     with alive_bar(len(mosaic_boundaries)-1, title = f"Creating mosaics...") as bar:
@@ -310,7 +326,6 @@ def mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res):
             right_border = sl
 
             for img_counter in range(len(idset)):
-                
                 file_name = frame_data.loc[frame_data.frame_number == idset[img_counter], "video_file"].values[0]
                 current_frame = frame_data.loc[frame_data.frame_number == idset[img_counter], "frame_location"].values[0]
 
@@ -324,77 +339,78 @@ def mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res):
                         pass
                     print(f"Processing mosaics from {current_filename}...")
                     cam = cv2.VideoCapture(os.path.join(vid_dir, current_filename))
-                    property_id = int(cv2.CAP_PROP_FRAME_COUNT) 
-                    length = int(cv2.VideoCapture.get(cam, property_id))  
+                    property_id = int(cv2.CAP_PROP_FRAME_COUNT)
+                    length = int(cam.get(property_id))
                     frame_count = 0
                     accumulated_time = end_time
-        
-                while current_frame != frame_count:
-                    ret,frame = cam.read()
-                    while ret == False:
-                        if frame_count >= length:
-                            break
-                        print(ret, length, frame_count, current_frame)
-                        ret,frame = cam.read()
-                    frame_count += 1  
 
-                if frame_count == 0:
-                    ret,frame = cam.read()
-                    frame_count += 1
                 if frame_count >= length:
                     break
 
-                frame = cv2.resize(frame, dsize = resolutions[video_res], interpolation = cv2.INTER_AREA)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # Seek to the target frame by skipping preceding frames
+                while frame_count < current_frame and frame_count < length:
+                    ret, frame = cam.read()
+                    frame_count += 1
+                    if not ret:
+                        if frame_count >= length:
+                            break
+
+                # Read the actual target frame
+                if frame_count == current_frame and frame_count < length:
+                    ret, frame = cam.read()
+                    frame_count += 1
+                    if ret:
+                        frame = cv2.resize(frame, dsize = resolutions[video_res], interpolation = cv2.INTER_AREA)
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-                if img_counter == 0:
-                    start_time = float(frame_data.loc[frame_data.frame_number == idset[img_counter], "frame_timestamp"].values[0]) + accumulated_time
-                    img = frame
-                    strip1 = img[yc - strip_width : yc + strip_width + 1]
-                    mosaic = strip1
+                        if img_counter == 0:
+                            start_time = float(frame_data.loc[frame_data.frame_number == idset[img_counter], "frame_timestamp"].values[0]) + accumulated_time
+                            img = frame
+                            strip1 = img[yc - strip_width : yc + strip_width + 1]
+                            mosaic = strip1
 
-                    # Padding
-                    current_x = int(sl*1.5)
-                    current_y = int(0.25*strip_width*len(idset))*interval
-                    mosaic = cv2.copyMakeBorder(mosaic, current_y, 0, current_x, current_x, cv2.BORDER_CONSTANT)
-                    left_border = 0
-                    right_border = mosaic.shape[1]
-                    
-                   
-                elif img_counter < len(idset)-1:
-                    strip2 = frame[yc - strip_width : yc + strip_width + 1]
-                    try:
-                        py, px, reg_stats  = matching(np.ascontiguousarray(strip2[...,1]), np.ascontiguousarray(strip1[...,1]), strip_width, xc, upper_threshold)
-                    except:
-                        print("Matching failed. Skipping frame...")
-                        continue
-                    if np.sqrt((py - strip_width)**2 + (px-xc)**2) > stitching_threshold:
-                        continue
-
-                    y_offset = py - strip_width
-                    if y_offset <= 0:
-                        x_offset = px - xc
-                        current_x += x_offset 
-                        current_y += y_offset
-                        mstrip = strip2
-
-                        if idset[img_counter + 1] is None:
-                            continue
-
-                        if current_y < 0:
-                            mosaic = cv2.copyMakeBorder(mosaic, abs(current_y), 0, 0, 0, cv2.BORDER_CONSTANT)
-                            current_y = 0
-
-                        if current_x < left_border:
-                            mosaic = cv2.copyMakeBorder(mosaic,0, 0, -(current_x - left_border), 0, cv2.BORDER_CONSTANT) 
-                            left_border = current_x
-                        elif current_x + sl > right_border:
-                            mosaic = cv2.copyMakeBorder(mosaic,0, 0, 0, current_x + sl - right_border, cv2.BORDER_CONSTANT) 
-                            right_border = current_x + sl 
+                            # Padding
+                            current_x = int(sl*1.5)
+                            current_y = int(0.25*strip_width*len(idset))*interval
+                            mosaic = cv2.copyMakeBorder(mosaic, current_y, 0, current_x, current_x, cv2.BORDER_CONSTANT)
+                            left_border = 0
+                            right_border = mosaic.shape[1]
+                            
                         
-                        mosaic[current_y:current_y + strip_width*2+1,current_x - left_border : sl + current_x - left_border] = mstrip
+                        elif img_counter < len(idset)-1:
+                            strip2 = frame[yc - strip_width : yc + strip_width + 1]
+                            try:
+                                py, px, reg_stats  = matching(np.ascontiguousarray(strip2[...,1]), np.ascontiguousarray(strip1[...,1]), strip_width, xc, upper_threshold)
+                            except:
+                                print("Matching failed. Skipping frame...")
+                                continue
+                            if np.sqrt((py - strip_width)**2 + (px-xc)**2) > stitching_threshold:
+                                continue
 
-                        strip1 = strip2
+                            y_offset = py - strip_width
+                            if y_offset <= 0:
+                                x_offset = px - xc
+                                current_x += x_offset 
+                                current_y += y_offset
+                                mstrip = strip2
+
+                                if idset[img_counter + 1] is None:
+                                    continue
+
+                                if current_y < 0:
+                                    mosaic = cv2.copyMakeBorder(mosaic, abs(current_y), 0, 0, 0, cv2.BORDER_CONSTANT)
+                                    current_y = 0
+
+                                if current_x < left_border:
+                                    mosaic = cv2.copyMakeBorder(mosaic,0, 0, -(current_x - left_border), 0, cv2.BORDER_CONSTANT) 
+                                    left_border = current_x
+                                elif current_x + sl > right_border:
+                                    mosaic = cv2.copyMakeBorder(mosaic,0, 0, 0, current_x + sl - right_border, cv2.BORDER_CONSTANT) 
+                                    right_border = current_x + sl 
+                                
+                                mosaic[current_y:current_y + strip_width*2+1,current_x - left_border : sl + current_x - left_border] = mstrip
+
+                                strip1 = strip2
             try:
                 end_time = float(frame_data.loc[frame_data.frame_number == idset[img_counter], "frame_timestamp"].values[0]) + accumulated_time
                 non_black_rows = np.any(mosaic != [0, 0, 0], axis=(1, 2))
@@ -431,59 +447,172 @@ def mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res):
         file.write(str(mosaic_meta_data))
 
 
-def trim_and_mark(num_div, num_markings, trim_dir, mosaics_dir):
-    if len(os.listdir(mosaics_dir)) == 0:
-        print("No mosaics found. Aborting process...")
-        return
-    num_mosaics = len([f for f in os.listdir(mosaics_dir) 
-    if f.endswith('.png') and os.path.isfile(os.path.join(mosaics_dir, f))])
 
-    for file_number in range(num_mosaics):
-        file = os.path.join(mosaics_dir, f"{file_number}.png")
-        img = np.array(cv2.imread(file))
-        vert = img.shape[0]
-        marking_box = int(0.02*vert/num_div)
-        thickness = int(0.002*vert/num_div)
+def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir):
+    utc_offset = int(data["utc_offset"])
+    sync_UTC_time = str(data["sync_time"])
+    sync_UTC_time = datetime.datetime.strptime(sync_UTC_time,'%H:%M:%S')
+    sync_UTC_time = sync_UTC_time + datetime.timedelta(hours = - utc_offset)
+    sync_UTC_time = HMS2Conv(sync_UTC_time.strftime("%H:%M:%S"))
+    date = data["date_picker"]
 
-        if thickness == 0:
-            thickness = 1
-        if marking_box == 0:
-            marking_box = 10
+    unique_dates = data["unique_dates"]
+    depth_status = int(data["depth_status"])
+    if len(unique_dates) > 1:
+        gps_data = gps_data[gps_data.date == date].reset_index(drop=True)
+
+    gps_data["conv_time"] = gps_data.time.apply(HMS2Conv)
+    print(gps_data.conv_time.min(), gps_data.conv_time.max(), sync_UTC_time)
+    print(gps_data.conv_time)
+
+    if len(gps_data[gps_data.conv_time <= sync_UTC_time].index) <= 0:
+        print("WARNING: No data points were removed during GPS and Video synchronization. This could mean that GPS data collection started after the synchronization time.")
+
+    lon_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lon, kind='linear', fill_value='extrapolate', bounds_error=False)
+    lat_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lat, kind='linear', fill_value='extrapolate', bounds_error=False)
+    heading_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.instr_heading, kind='linear', fill_value='extrapolate', bounds_error=False)
+
+    if depth_status == 1:
+        depth_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.dep_m, kind='linear', fill_value='extrapolate', bounds_error=False)
+        ave_depth = np.mean(gps_data.dep_m)
+
+    print("Georeferencing images...")
+    with open(os.path.join(mosaics_dir, "mosaics_data.txt"), 'r') as file:
+        mosaic_data = file.readline()
+    mosaic_data = eval(mosaic_data)
+    num_mosaics = mosaic_data["num_mosaics"]
+    if num_mosaics == 0:
+        print("No mosaics detected for this project. No images can be georeferenced")
+    else:
         
-        boundaries = np.arange(0, vert, int(vert/num_div), dtype = np.int32)
-        boundaries[-1] = vert
-        boundaries = np.flip(boundaries)
+        kmz_limit = 100
+        img_counter = 0
+        kmz_counter = 0
+        kml = simplekml.Kml()
+        depth = 0
+        if depth_status == 0:
+            width_m = 5
+        mosaic_boundaries = pd.read_csv(os.path.join(mosaics_dir, "mosaic_time_boundaries.csv"))
+        start_times = mosaic_boundaries['start_time_s'].tolist()
+        end_times = mosaic_boundaries['end_time_s'].tolist()
+        time_floor = start_times[0]
+        time_sync = sync_UTC_time - time_floor
+        with alive_bar(len(mosaic_boundaries), title = f"Georeferencing mosaics...") as bar:
+            for i in range(len(mosaic_boundaries)):
+                    
+                start = start_times[i] + time_sync
+                end = end_times[i] + time_sync
+                mid = start + (end-start)//2
 
-        for i in range(len(boundaries)-1):
-            upper_bound = boundaries[i]
-            lower_bound = boundaries[i+1]
+                mosaic_name = int(i)
+                icon_path = os.path.join(mosaics_dir, f"{mosaic_name}.png")
+                lpx, wpx = get_imgdim(icon_path)
+                headings = heading_interp(start)
+                try:
+                    headinge = heading_interp(end)
+                except:
+                    print("Could not georeference all mosaics due to the lack of GPS data.")
+                    break
+                heading = heading_interp(mid)
 
-            trimmed = img[lower_bound:upper_bound,:,:]
+                lat_s = lat_interp(start)
+                lon_s = lon_interp(start)
+                lat_e = lat_interp(end)
+                lon_e = lon_interp(end)
+                lat_m = lat_interp(mid)
+                lon_m = lon_interp(mid)
 
-            non_black_rows = np.any(trimmed != [0, 0, 0], axis=(1, 2))
-            non_black_columns = np.any(trimmed != [0, 0, 0], axis=(0, 2))
-            trimmed = trimmed[non_black_rows, :]
-            trimmed = trimmed[:, non_black_columns]
+                if depth_status == 1:
+                    depth = np.mean(depth_interp(np.linspace(start, end, 1000)))
+                    width_m = 1.55948 * ave_depth
+                    px2m = width_m / wpx
+                    scalebar = ScaleBar(dx=px2m,
+                                        units='m',
+                                        fixed_value=1,
+                                        fixed_units='m',
+                                        location="lower left",
+                                        font_properties={'family': 'monospace',
+                                                        'weight': 'semibold',
+                                                        'size': 20})
+                    
+                img = np.array(Image.open(os.path.join(mosaics_dir, f"{mosaic_name}.png")))[:, :, 0:3]
+                img = imutils.rotate_bound(img, angle=heading)
+                non_black_rows = np.any(img != [0, 0, 0], axis=(1, 2))
+                non_black_columns = np.any(img != [0, 0, 0], axis=(0, 2))
+                img = img[non_black_rows, :]
+                img = img[:, non_black_columns]
+                rlpx, rwpx = img.shape[0], img.shape[1]
+                fig, ax = plt.subplots(figsize=(20, 20))
+                img_desc = '\n'.join((
+                    r'mosaic no. %.0f' % (mosaic_name),
+                    r'date: %s' % (date),
+                    r'lat.: %.8f°' % (lat_m),
+                    r'lon.: %.8f°' % (lon_m),
+                    r'bearing: %.2f°' % (heading),
+                    r'ave. depth: %.3f' % (depth),
+                ))
 
-            trimmed = np.ascontiguousarray(trimmed)
+                ax.imshow(img)
+                ax.set_title(img_desc, loc="left", fontsize=30)
+                plt.gca().set_aspect('equal', adjustable='box')
+                if depth_status == 1:
+                    plt.gca().add_artist(scalebar)
+                ax.set_axis_off()
 
-            mask = np.ones((trimmed.shape[0:2]))
-            black_region = trimmed == [0,0,0]
-            mask[black_region[...,0]] = 0
+                fig.savefig(os.path.join(rect_mosaics_dir, f"{mosaic_name}.jpg"), bbox_inches='tight')
+                plt.close('all')
+                gc.collect()
 
-            rows, columns = np.where(mask == 1)
-            valid_points = np.stack([rows, columns], axis = 1)
+                point = kml.newpoint(name=f"{mosaic_name}", coords=[(lon_m, lat_m)])
+                picpath = kml.addfile(os.path.join(rect_mosaics_dir, f"{mosaic_name}.jpg"))
+                img_desc = f'<img src="{picpath}" alt="picture" width="{rwpx}" height="{rlpx}" align="left" />'
+                point.style.balloonstyle.text = img_desc
 
-            random_markings = np.random.randint(0, len(valid_points), size = num_markings)
+                ground = kml.newgroundoverlay(name=f"{mosaic_name}.png")
+                ground.icon.href = icon_path
+                ground.description = f"{mosaic_name}.png\nheading: {heading}"
 
-            chosen_marks = valid_points[random_markings]
-            # print(chosen_marks)
+                # if (heading >= 270 and heading <= 360) or (heading >= 0 and heading <= 90):
+                # radians
+                perp_s = (headings + 90.0) * deg2rad
+                perp_e = (headinge + 90.0) * deg2rad
 
-            for mark in chosen_marks:
-                centroid_y = mark[0]
-                centroid_x = mark[1]
+                dxs = 0.5 * width_m * np.sin(perp_s)   
+                dys = 0.5 * width_m * np.cos(perp_s)   
+                dx2s = -dxs
+                dy2s = -dys
+
+                dxe = 0.5 * width_m * np.sin(perp_e)
+                dye = 0.5 * width_m * np.cos(perp_e)
+                dx2e = -dxe
+                dy2e = -dye
+
+                # meters → lat/lon
+                tr_lon = lon_s + (dxs / (r_e * np.cos(lat_s * deg2rad))) * rad2deg
+                tr_lat = lat_s + (dys / r_e) * rad2deg
+
+                tl_lon = lon_s + (dx2s / (r_e * np.cos(lat_s * deg2rad))) * rad2deg
+                tl_lat = lat_s + (dy2s / r_e) * rad2deg
+
+                br_lon = lon_e + (dxe / (r_e * np.cos(lat_e * deg2rad))) * rad2deg
+                br_lat = lat_e + (dye / r_e) * rad2deg
+
+                bl_lon = lon_e + (dx2e / (r_e * np.cos(lat_e * deg2rad))) * rad2deg
+                bl_lat = lat_e + (dy2e / r_e) * rad2deg
+
+                ground.gxlatlonquad.coords = [
+                    (tl_lon, tl_lat),
+                    (tr_lon, tr_lat),
+                    (br_lon, br_lat),
+                    (bl_lon, bl_lat)
+                ]
 
 
-                trimmed = cv2.line(trimmed, (centroid_x - marking_box, centroid_y- marking_box), (centroid_x + marking_box, centroid_y+ marking_box), (0, 255, 255), thickness)
-                trimmed = cv2.line(trimmed, (centroid_x - marking_box, centroid_y+ marking_box), (centroid_x + marking_box, centroid_y- marking_box), (0, 255, 255), thickness)
-            cv2.imwrite(os.path.join(trim_dir, f"{file_number}_{i}.jpg"), trimmed)
+                img_counter += 1
+                bar()
+                if img_counter % kmz_limit == 0:
+                    kml.savekmz(os.path.join(kmz_dir, f"{kmz_counter}.kmz"))
+                    kml = simplekml.Kml()
+                    kmz_counter += 1
+            if img_counter % kmz_limit != 0:
+                kml.savekmz(os.path.join(kmz_dir, f"{kmz_counter}.kmz"))
