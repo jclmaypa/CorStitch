@@ -743,6 +743,13 @@ class MainWindow(QWidget):
 
         if "georeference" in chosen_processes:
             georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir)
+        
+        print("Total processing time: {:.2f} seconds".format(time.time() - start_time))
+        print("You may now access your processed files in: ", project_dir)
+        print("Thank you for using CorStitch!")
+        print("You may now close this window.")
+
+        time.sleep(3600)
     
 
 if __name__ == "__main__":
