@@ -2,6 +2,7 @@
 # CorStitch Copyright (C) 2025  Julian Christopher L. Maypa, Johnenn R. Manalang, and Maricor N. Soriano 
 # This program comes with ABSOLUTELY NO WARRANTY;
 # This is free software, and you are welcome to redistribute it under the conditions specified in the GNU General Public License.; 
+# Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
 
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QFileDialog,
@@ -43,6 +44,8 @@ class MainWindow(QWidget):
         self.georef_part3 = False
         self.gps_data = 0
         self.raw_data = 0
+        self.GNSS_format = 0
+        self.local_format = 0
 
 
     def init_ui(self):
@@ -294,6 +297,9 @@ class MainWindow(QWidget):
         self.lon_col = QComboBox()
         self.depth_col = QComboBox()
         self.bearing_col = QComboBox()
+        self.local_time_format = QComboBox()
+        self.GNSS_time_format = QComboBox()
+
         for cb in [self.time_col, self.lat_col, self.lon_col, self.depth_col, self.bearing_col]:
             cb.addItem("NA")
 
@@ -310,6 +316,29 @@ class MainWindow(QWidget):
 
         column_grid.addWidget(QLabel("Longitude:"), 2, 0)
         column_grid.addWidget(self.lon_col,         2, 1)
+
+        column_grid.addWidget(QLabel("Local Time:"), 3, 0)
+        column_grid.addWidget(self.local_time_format,  3, 1)
+        self.local_time_format.addItems([str(i) for i in range(-12, 15)])
+        self.local_time_format.setCurrentText("8")  # Set the placeholder/default to 0
+        local_time_format_info = QLabel(self.info_icon_html)
+        local_time_format_info.setToolTip(
+            '<div style="white-space:pre-line; width:240px;"> This specifies the time zone offset for your local time. For example, the Philippines has a time zone offset of UTC+8. If you are from the Philippines, select 8.</div>'
+        )
+        column_grid.addWidget(local_time_format_info,  3, 2)
+
+
+        column_grid.addWidget(QLabel("GNSS Time:"), 4, 0)
+        column_grid.addWidget(self.GNSS_time_format,   4, 1)
+
+        self.GNSS_time_format.addItems([str(i) for i in range(-12, 15)])
+        self.GNSS_time_format.setCurrentText("0")  # Set the placeholder/default to 0\
+        GNSS_time_format_info = QLabel(self.info_icon_html)
+        GNSS_time_format_info.setToolTip(
+            '<div style="white-space:pre-line; width:240px;"> This specifies the time zone offset for your GNSS data. If your GNSS data is in the UTC+0 time zone, select 0. You may select 0 if you used a gpx file.</div>'
+        )
+        column_grid.addWidget(GNSS_time_format_info,  4, 2)
+
 
         layout.addLayout(column_grid)
 
@@ -352,56 +381,6 @@ class MainWindow(QWidget):
         sync_time_widget.setLayout(sync_time_layout)
         time_form.addRow("GNSS Synchronization time:", sync_time_widget)
 
-        # self.utc_offset = QComboBox()
-        # self.utc_offset.addItems([str(i) for i in range(-12, 13)])
-        # self.utc_offset.setCurrentText("0")  # Set the placeholder/default to 0
-        # self.utc_offset.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        # utc_offset_info = QLabel(self.info_icon_html)
-        # utc_offset_info.setToolTip(
-        #     '<div style="white-space:pre-line; width:240px;">This subtracts from your local time to match the UTC time in your GNSS data. For example, if your GNSS data is in UTC+0 and your local time is UTC+8, select 8. If your GNSS data already matches with your local time, select 0.</div>'
-        # )
-        # utc_offset_widget = QWidget()
-        # utc_offset_layout = QHBoxLayout()
-        # utc_offset_layout.setContentsMargins(0, 0, 0, 0)
-        # utc_offset_layout.addWidget(self.utc_offset)
-        # utc_offset_layout.addWidget(utc_offset_info)
-        # utc_offset_widget.setLayout(utc_offset_layout)
-        # time_form.addRow("UTC offset in your GNSS data:", utc_offset_widget)
-
-
-        self.GNSS_time_format = QComboBox()
-        self.GNSS_time_format.addItems([str(i) for i in range(-12, 13)])
-        self.GNSS_time_format.setCurrentText("0")  # Set the placeholder/default to 0
-        self.GNSS_time_format.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        GNSS_time_format_info = QLabel(self.info_icon_html)
-        GNSS_time_format_info.setToolTip(
-            '<div style="white-space:pre-line; width:240px;"> This specifies the time zone offset for your GNSS data. If your GNSS data is in the UTC+0 time zone, select 0. You may select 0 if you used a gpx file.</div>'
-        )
-        GNSS_time_format_widget = QWidget()
-        GNSS_time_format_layout = QHBoxLayout()
-        GNSS_time_format_layout.setContentsMargins(0, 0, 0, 0)
-        GNSS_time_format_layout.addWidget(self.GNSS_time_format)
-        GNSS_time_format_layout.addWidget(GNSS_time_format_info)
-        GNSS_time_format_widget.setLayout(GNSS_time_format_layout)
-        time_form.addRow("GNSS time format:", GNSS_time_format_widget)
-
-        self.local_time_format = QComboBox()
-        self.local_time_format.addItems([str(i) for i in range(-12, 13)])
-        self.local_time_format.setCurrentText("8")  # Set the placeholder/default to 0
-        self.local_time_format.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        local_time_format_info = QLabel(self.info_icon_html)
-        local_time_format_info.setToolTip(
-            '<div style="white-space:pre-line; width:240px;"> This specifies the time zone offset for your local time. For example, the Philippines has a time zone offset of UTC+8, so select 8.</div>'
-        )
-        local_time_format_widget = QWidget()
-        local_time_format_layout = QHBoxLayout()
-        local_time_format_layout.setContentsMargins(0, 0, 0, 0)
-        local_time_format_layout.addWidget(self.local_time_format)
-        local_time_format_layout.addWidget(local_time_format_info)
-        local_time_format_widget.setLayout(local_time_format_layout)
-        time_form.addRow("Local time format:", local_time_format_widget)
-
-        
 
         layout.addLayout(time_form)
 
@@ -419,8 +398,8 @@ class MainWindow(QWidget):
             self.local_time_format
         ]
         self.georef_widgets_part1 = [self.gnss_file, gnss_browse]
-        self.georef_widgets_part2 = [ self.time_col, self.lat_col, self.lon_col, self.depth_col, self.bearing_col, self.check_columns_button, ]
-        self.georef_widgets_part3 = [self.date_picker, self.sync_time, self.GNSS_time_format, self.local_time_format]
+        self.georef_widgets_part2 = [ self.time_col, self.lat_col, self.lon_col, self.depth_col, self.bearing_col, self.local_time_format, self.GNSS_time_format, self.check_columns_button,]
+        self.georef_widgets_part3 = [self.date_picker, self.sync_time]
         self.set_enabled(self.georef_widgets, False)
         self.georef_checkbox.setEnabled(False)
 
@@ -461,7 +440,6 @@ class MainWindow(QWidget):
                 self.set_enabled(self.georef_widgets_part1, not partially_filled)
                 self.set_enabled(self.georef_widgets_part2, not partially_filled)
                 self.set_enabled(self.georef_widgets_part3, not partially_filled)
-           
 
 
     def set_enabled(self, widgets, enabled):
@@ -533,10 +511,14 @@ class MainWindow(QWidget):
             self.depth_col.currentText(),
             self.bearing_col.currentText()
         ]
+        self.GNSS_format = int(self.GNSS_time_format.currentText())
+        self.local_format= int(self.local_time_format.currentText())
         self.raw_data.read_gps_data(self.chosen_columns)
         self.gps_data = self.raw_data.export()
-        if np.all(self.gps_data.date_time.str.contains('Z')) and np.all(self.gps_data.date_time.str.contains('T')):
-            self.raw_data.date_time_split()
+
+        if np.all(self.gps_data.date_time.str.contains('T')):
+            self.raw_data.date_time_split(local_format = self.local_format)
+            self.GNSS_format = self.local_format
             self.gps_data = self.raw_data.export()
             self.unique_dates = self.gps_data.date.unique()
 
@@ -591,9 +573,10 @@ class MainWindow(QWidget):
 
         self.gps_data = self.raw_data.export()
         self.georef_part2 = True
+        self.set_enabled(self.georef_widgets_part2, False)
         self.set_enabled(self.georef_widgets_part3, True)
         # Update georef_widgets_part3 to avoid referencing deleted widgets
-        self.georef_widgets_part3 = [self.date_picker, self.sync_time, self.GNSS_time_format, self.local_time_format]
+        self.georef_widgets_part3 = [self.date_picker, self.sync_time]
 
 
     def show_custom_popup(self, message, title = "Message"):
@@ -638,7 +621,9 @@ class MainWindow(QWidget):
             "lon_col": self.lon_col.currentText(),
             "depth_col": self.depth_col.currentText(),
             "bearing_col": self.bearing_col.currentText(),
-            "utc_offset": int(self.GNSS_time_format.currentText()) - int(self.local_time_format.currentText()),
+            "local_time_format": self.local_format,
+            "GNSS_time_format": self.GNSS_format,
+            "utc_offset": self.GNSS_format - self.local_format,
         }
 
         if "georeference" in self.chosen_processes:
@@ -648,6 +633,8 @@ class MainWindow(QWidget):
                 data["unique_dates"] = self.unique_dates
                 data["depth_status"] = self.raw_data.depth_status
                 data["bearing_status"] = self.raw_data.heading_status
+                data["local_time_format"] = self.local_format
+                data["GNSS_time_format"] = self.GNSS_format
             else:
                 data["sync_time"] = " "
                 data["date_picker"] = " "
@@ -705,12 +692,6 @@ class MainWindow(QWidget):
         if "create_mosaics" in chosen_processes:
             mosaic_t = int(data["mosaic_time"])
             sync_vid_time = int(data["starting_time"])
-        if "georeference" in chosen_processes:
-            utc_offset = int(data["utc_offset"])
-            sync_UTC_time = str(data["sync_time"])
-            sync_UTC_time = datetime.datetime.strptime(sync_UTC_time,'%H:%M:%S')
-            sync_UTC_time = sync_UTC_time + datetime.timedelta(hours = - utc_offset)
-            sync_UTC_time = sync_UTC_time.strftime("%H:%M:%S")
 
         project_name = data["project_name"]
         vid_dir = data["video_folder"]

@@ -22,6 +22,7 @@ import simplekml
 import imutils
 import matplotlib.pyplot as plt
 from matplotlib_scalebar.scalebar import ScaleBar
+
 pyfftw.interfaces.cache.enable()
 NUM_THREADS = max(1, os.cpu_count() - 1)
 
@@ -126,49 +127,55 @@ class GPSdata():
             self.gps_data["dep_m"]= self.gps_data["dep_m"].interpolate(method = "linear")
         self.gps_data.dropna(how = "any", inplace = True, ignore_index = True)
 
-        if self.heading_status == 1:
-            self.gps_data["instr_heading"]= self.gps_data["instr_heading"].interpolate(method = "linear")
         if self.heading_status == 0:
-            headings = []
+            self.gps_data["instr_heading"] = None
+            # headings = []
 
-            for i in range(len(self.gps_data) - 1):
-                lon1 = self.gps_data.lon[i] * deg2rad
-                lon2 = self.gps_data.lon[i+1] * deg2rad
-                lat1 = self.gps_data.lat[i] * deg2rad
-                lat2 = self.gps_data.lat[i+1] * deg2rad
+            # for i in range(len(self.gps_data) - 1):
+            #     lon1 = self.gps_data.lon[i] * deg2rad
+            #     lon2 = self.gps_data.lon[i+1] * deg2rad
+            #     lat1 = self.gps_data.lat[i] * deg2rad
+            #     lat2 = self.gps_data.lat[i+1] * deg2rad
 
-                dlon = lon2 - lon1
+            #     dlon = lon2 - lon1
 
-                y = np.sin(dlon) * np.cos(lat2)
-                x = np.cos(lat1) * np.sin(lat2) - np.sin(lat1) * np.cos(lat2) * np.cos(dlon)
+            #     y = np.sin(dlon) * np.cos(lat2)
+            #     x = np.cos(lat1) * np.sin(lat2) - np.sin(lat1) * np.cos(lat2) * np.cos(dlon)
 
-                brng = np.arctan2(y, x)  # radians, from North, clockwise
-                heading = (brng * rad2deg + 360) % 360
+            #     brng = np.arctan2(y, x)  # radians, from North, clockwise
+            #     heading = (brng * rad2deg + 360) % 360
 
-                headings.append(heading)
+            #     headings.append(heading)
 
-            headings = np.array(headings)
+            # headings = np.array(headings)
 
-            # pad first/last to keep same length
-            headings = np.insert(headings, 0, headings[0])
-            self.gps_data["instr_heading"] = headings
+            # # pad first/last to keep same length
+            # headings = np.insert(headings, 0, headings[0])
+            # self.gps_data["instr_heading"] = headings
 
-        return self.depth_status
+        return self.depth_status, self.heading_status
     
-    def date_time_split(self, chosen_date = 0, splitting = True):
+    def date_time_split(self, local_format = 0, chosen_date = 0, splitting = True):
+
+        if local_format > 0:
+            offset_string = "-"+str(local_format)
+        if local_format <= 0:
+            offset_string = "+"+str(abs(local_format))
+            
         if splitting == True:
-            self.gps_data.loc[:, 'date'] = self.gps_data.date_time.replace(r"[T].+$", "", regex=True)
-            self.gps_data.loc[:, 'time'] = self.gps_data.date_time.str.extract(r'.*T(.*)Z')
+            dt = pd.to_datetime(self.gps_data["date_time"])
+            dt = dt.dt.tz_convert("Etc/GMT"+offset_string)
+
+            self.gps_data["date"] = dt.dt.strftime("%Y-%m-%d")
+            self.gps_data["time"] = dt.dt.strftime("%H:%M:%S.%f")
         else:
             self.gps_data.rename(columns = {"date_time":"time"}, inplace=True)
+            self.gps_data["date"] = None
 
     def convert_time(self):
         self.gps_data["conv_time"] = self.gps_data.time.apply(HMS2Conv)
-        # add synch time
     def export(self):
         return self.gps_data
-        # add synch time
-
 
 def scan_frames(vid_dir, mosaics_dir, frame_interval):
     currentframe = 0 
@@ -190,8 +197,6 @@ def scan_frames(vid_dir, mosaics_dir, frame_interval):
             frame_data = pd.read_csv(os.path.join(mosaics_dir, "frame_scan_data.csv"))
         except:
             print("ERROR: Could not locate previous frame scan data. Aborting process...")
-
-     
     
     rows = []
     for file_name in np.sort(os.listdir(vid_dir)):
@@ -227,6 +232,7 @@ def scan_frames(vid_dir, mosaics_dir, frame_interval):
                             file_name,
                             float(timestamp_ms)
                         ])
+                        last_usable_frame = currentframe
 
                     currentframe += 1
                     frame_location += 1
@@ -241,12 +247,12 @@ def scan_frames(vid_dir, mosaics_dir, frame_interval):
     frame_meta_data = {
         "time": str(datetime.datetime.now()),
         "fps": fps,
-        "last_frame": currentframe,
+        "last_frame": last_usable_frame,
         "frame_interval": frame_interval,
     }
     with open(os.path.join(mosaics_dir, "frame_data.txt"), 'w') as file:
         file.write(str(frame_meta_data))
-    return currentframe
+    return last_usable_frame
     
 
 def matching(im1, im2, yc, xc, threshold):
@@ -455,12 +461,15 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
     # sync_UTC_time = sync_UTC_time + datetime.timedelta(hours = - utc_offset)
     sync_UTC_time = HMS2Conv(sync_UTC_time.strftime("%H:%M:%S"))
 
+        
     date = data["date_picker"]
 
     unique_dates = data["unique_dates"]
     depth_status = int(data["depth_status"])
+    heading_status = int(data["bearing_status"])
     if len(unique_dates) > 1:
         gps_data = gps_data[gps_data.date == date].reset_index(drop=True)
+        print(gps_data)
 
     gps_data["conv_time"] = gps_data.time.apply(HMS2Conv)
     gps_data["conv_time"] = gps_data["conv_time"] - utc_offset*3600
@@ -470,7 +479,10 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
 
     lon_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lon, kind='linear', fill_value='extrapolate', bounds_error=False)
     lat_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lat, kind='linear', fill_value='extrapolate', bounds_error=False)
-    heading_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.instr_heading, kind='linear', fill_value='extrapolate', bounds_error=False)
+
+    # if heading_status == 1:
+    #     heading_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.instr_heading, kind='linear', fill_value=0, bounds_error=False)
+
 
     if depth_status == 1:
         depth_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.dep_m, kind='linear', fill_value='extrapolate', bounds_error=False)
@@ -481,10 +493,10 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
         mosaic_data = file.readline()
     mosaic_data = eval(mosaic_data)
     num_mosaics = mosaic_data["num_mosaics"]
+
     if num_mosaics == 0:
         print("No mosaics detected for this project. No images can be georeferenced")
     else:
-        
         kmz_limit = 100
         img_counter = 0
         kmz_counter = 0
@@ -497,6 +509,39 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
         end_times = mosaic_boundaries['end_time_s'].tolist()
         time_floor = start_times[0]
         time_sync = sync_UTC_time - time_floor
+
+
+        if heading_status == 0:
+            all_headings = []
+            for i in range(len(mosaic_boundaries)):
+                start = start_times[i]+ time_sync
+                end = end_times[i]+ time_sync
+                mid = start + (end-start)//2
+
+                lat_s = lat_interp(start)
+                lon_s = lon_interp(start)
+                lat_e = lat_interp(end)
+                lon_e = lon_interp(end)
+
+                lon1 = lon_s * deg2rad
+                lon2 = lon_e * deg2rad
+                lat1 = lat_s * deg2rad
+                lat2 = lat_e * deg2rad
+
+                dlon = lon2 - lon1
+
+                y = np.sin(dlon) * np.cos(lat2)
+                x = np.cos(lat1) * np.sin(lat2) - np.sin(lat1) * np.cos(lat2) * np.cos(dlon)
+
+                brng = np.arctan2(y, x)  # radians, from North, clockwise
+                heading = (brng * rad2deg + 360) % 360
+
+                all_headings.append(heading)
+            all_headings = np.array(all_headings)
+            heading_interp = sp.interpolate.interp1d(mosaic_boundaries['start_time_s']+ time_sync, all_headings, kind='linear', fill_value="extrapolate", bounds_error=False)
+        if heading_status == 1:
+            heading_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.instr_heading, kind='linear', fill_value="extrapolate", bounds_error=False)
+
         with alive_bar(len(mosaic_boundaries), title = f"Georeferencing mosaics...") as bar:
             for i in range(len(mosaic_boundaries)):
                     
@@ -507,13 +552,6 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
                 mosaic_name = int(i)
                 icon_path = os.path.join(mosaics_dir, f"{mosaic_name}.png")
                 lpx, wpx = get_imgdim(icon_path)
-                headings = heading_interp(start)
-                try:
-                    headinge = heading_interp(end)
-                except:
-                    print("Could not georeference all mosaics due to the lack of GPS data.")
-                    break
-                heading = heading_interp(mid)
 
                 lat_s = lat_interp(start)
                 lon_s = lon_interp(start)
@@ -521,6 +559,9 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
                 lon_e = lon_interp(end)
                 lat_m = lat_interp(mid)
                 lon_m = lon_interp(mid)
+                heading_s = heading_interp(start)
+                heading_e = heading_interp(end)
+                heading = heading_interp(mid)
 
                 if depth_status == 1:
                     depth = np.mean(depth_interp(np.linspace(start, end, 1000)))
@@ -572,10 +613,8 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
                 ground.icon.href = icon_path
                 ground.description = f"{mosaic_name}.png\nheading: {heading}"
 
-                # if (heading >= 270 and heading <= 360) or (heading >= 0 and heading <= 90):
-                # radians
-                perp_s = (headings + 90.0) * deg2rad
-                perp_e = (headinge + 90.0) * deg2rad
+                perp_s = (heading_s + 90.0) * deg2rad
+                perp_e = (heading_e + 90.0) * deg2rad
 
                 dxs = 0.5 * width_m * np.sin(perp_s)   
                 dys = 0.5 * width_m * np.cos(perp_s)   
@@ -606,7 +645,6 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
                     (br_lon, br_lat),
                     (bl_lon, bl_lat)
                 ]
-
 
                 img_counter += 1
                 bar()
