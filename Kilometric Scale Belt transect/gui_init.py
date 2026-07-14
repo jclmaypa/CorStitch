@@ -22,6 +22,7 @@ import simplekml
 import imutils
 import matplotlib.pyplot as plt
 from matplotlib_scalebar.scalebar import ScaleBar
+import av
 
 pyfftw.interfaces.cache.enable()
 NUM_THREADS = max(1, os.cpu_count() - 1)
@@ -177,83 +178,91 @@ class GPSdata():
     def export(self):
         return self.gps_data
 
+
+
 def scan_frames(vid_dir, mosaics_dir, frame_interval):
-    currentframe = 0 
 
     all_fps = []
+
+    # ----------------------------
+    # Get FPS from all videos
+    # ----------------------------
     for file_name in os.listdir(vid_dir):
-        if np.any([filetype in file_name.lower() for filetype in valid_video_types]):
-            data = cv2.VideoCapture(os.path.join(vid_dir, f"{file_name}"))
-            fps = data.get(cv2.CAP_PROP_FPS) 
-            all_fps.append(fps)
-    fps = np.mean(all_fps)
-    
-    if currentframe == 0:
-       frame_data = pd.DataFrame(columns = ["frame_number", "frame_location", "video_file", "frame_timestamp"])
-       frame_data.to_csv(os.path.join(mosaics_dir, "frame_scan_data.csv"))
-    
-    if currentframe != 0:
-        try:
-            frame_data = pd.read_csv(os.path.join(mosaics_dir, "frame_scan_data.csv"))
-        except:
-            print("ERROR: Could not locate previous frame scan data. Aborting process...")
-    
-    rows = []
-    for file_name in np.sort(os.listdir(vid_dir)):
         if os.path.splitext(file_name)[1].lower() in valid_video_types:
-            frame_location = 0
-            cam = cv2.VideoCapture(os.path.join(vid_dir, file_name))
-            property_id = int(cv2.CAP_PROP_FRAME_COUNT)  
-            length = int(cv2.VideoCapture.get(cam, property_id)) 
-            with alive_bar(length, title=f"Scanning frames in {file_name}") as bar:
-                for i in range(length):
-                    ret, frame = cam.read()
 
-                    # Retry until frame is valid (with safety break)
-                    retry_count = 0
-                    while not ret and retry_count < 10:
-                        ret, frame = cam.read()
-                        frame_location += 1
-                        retry_count += 1
+            container = av.open(os.path.join(vid_dir, file_name))
+            stream = container.streams.video[0]
+            if stream.average_rate is not None:
+                all_fps.append(float(stream.average_rate))
 
-                    if not ret:
-                        # Skip this frame if still invalid after retries
-                        currentframe += 1
-                        frame_location += 1
-                        bar()
-                        continue
+            container.close()
 
-                    timestamp_ms = cam.get(cv2.CAP_PROP_POS_MSEC)
+    fps = np.mean(all_fps)
 
-                    if currentframe % frame_interval == 0:
-                        rows.append([
-                            currentframe,
-                            frame_location,
-                            file_name,
-                            float(timestamp_ms)
-                        ])
-                        last_usable_frame = currentframe
+    # Initialize CSV
+    columns = ["frame_number", "frame_location", "video_file", "frame_timestamp"]
+    pd.DataFrame(columns=columns).to_csv(os.path.join(mosaics_dir, "frame_scan_data.csv"),index=False)
 
-                    currentframe += 1
-                    frame_location += 1
-                    bar()
+    rows = []
+    last_usable_frame = 0
+    currentframe = 0
 
-    frame_data = pd.DataFrame(rows, columns=frame_data.columns)
+    # ----------------------------
+    # Scan frames
+    # ----------------------------
+    for file_name in np.sort(os.listdir(vid_dir)):
+        frame_location = 0
+        
+        if os.path.splitext(file_name)[1].lower() not in valid_video_types:
+            continue
+
+        video_path = os.path.join(vid_dir, file_name)
+        container = av.open(video_path)
+        stream = container.streams.video[0]
+
+        # total frames estimate
+        length = stream.frames
+
+        with alive_bar(length if length > 0 else None, title=f"Scanning frames in {file_name}") as bar:
+            for frame in container.decode(stream):
+
+                # PyAV gives timestamp in stream timebase
+                if frame.pts is not None:
+                    timestamp = float(frame.pts * stream.time_base) * 1000
+                else:
+                    timestamp = currentframe / fps * 1000
+
+                # valid frame
+                if currentframe % frame_interval == 0:
+                    rows.append([currentframe, frame_location, file_name, timestamp])
+                    last_usable_frame = currentframe
+                currentframe += 1
+                frame_location += 1
+                bar()
+        container.close()
+
+    # ----------------------------
+    # Save dataframe
+    # ----------------------------
+    frame_data = pd.DataFrame(rows, columns=columns)
     frame_data = frame_data.sort_values(by=["frame_number"])
-    frame_data.to_csv(os.path.join(mosaics_dir, "frame_scan_data.csv"), index = False)
+    frame_data.to_csv(os.path.join(mosaics_dir,"frame_scan_data.csv"),index=False)
 
-    cam.release() 
-    cv2.destroyAllWindows()
+
+    # metadata
     frame_meta_data = {
         "time": str(datetime.datetime.now()),
         "fps": fps,
         "last_frame": last_usable_frame,
         "frame_interval": frame_interval,
     }
-    with open(os.path.join(mosaics_dir, "frame_data.txt"), 'w') as file:
+
+
+    with open( os.path.join(mosaics_dir, "frame_data.txt"), "w") as file:
         file.write(str(frame_meta_data))
+
+
     return last_usable_frame
-    
 
 def matching(im1, im2, yc, xc, threshold):
     Fim1= fft2(im1, threads=NUM_THREADS)
@@ -338,85 +347,82 @@ def mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res):
                 if file_name != current_filename:
                     current_filename = file_name
                     try:
-                        cam.release()
-                        cv2.destroyAllWindows()
+                        container.close()
                         gc.collect()
                     except:
                         pass
                     print(f"Processing mosaics from {current_filename}...")
-                    cam = cv2.VideoCapture(os.path.join(vid_dir, current_filename))
-                    property_id = int(cv2.CAP_PROP_FRAME_COUNT)
-                    length = int(cam.get(property_id))
+                    container = av.open(os.path.join(vid_dir, current_filename))
+                    stream = container.streams.video[0]
                     frame_count = 0
                     accumulated_time = end_time
+                    frame_iterator = container.decode(stream)
 
-                if frame_count >= length:
-                    break
-
-                # Seek to the target frame by skipping preceding frames
-                while frame_count < current_frame and frame_count < length:
-                    ret, frame = cam.read()
+                # Move forward until desired frame
+                while frame_count < current_frame-1:
+                    try:
+                        av_frame = next(frame_iterator)
+                        frame_count += 1
+                    except StopIteration:
+                        break
+                
+                # Decode target frame
+                try:
+                    av_frame = next(frame_iterator)
                     frame_count += 1
-                    if not ret:
-                        if frame_count >= length:
-                            break
+                    frame = av_frame.to_ndarray(format="rgb24")
+                    frame = cv2.resize(frame, dsize=resolutions[video_res], interpolation=cv2.INTER_AREA)
+                except StopIteration:
+                    continue
+        
+                if img_counter == 0:
+                    start_time = float(frame_data.loc[frame_data.frame_number == idset[img_counter], "frame_timestamp"].values[0]) + accumulated_time
+                    img = frame
+                    strip1 = img[yc - strip_width : yc + strip_width + 1]
+                    mosaic = strip1
 
-                # Read the actual target frame
-                if frame_count == current_frame and frame_count < length:
-                    ret, frame = cam.read()
-                    frame_count += 1
-                    if ret:
-                        frame = cv2.resize(frame, dsize = resolutions[video_res], interpolation = cv2.INTER_AREA)
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-                        if img_counter == 0:
-                            start_time = float(frame_data.loc[frame_data.frame_number == idset[img_counter], "frame_timestamp"].values[0]) + accumulated_time
-                            img = frame
-                            strip1 = img[yc - strip_width : yc + strip_width + 1]
-                            mosaic = strip1
+                    # Padding
+                    current_x = int(sl*1.5)
+                    current_y = int(0.25*strip_width*len(idset))*interval
+                    mosaic = cv2.copyMakeBorder(mosaic, current_y, 0, current_x, current_x, cv2.BORDER_CONSTANT)
+                    left_border = 0
+                    right_border = mosaic.shape[1]
+                    
+                
+                elif img_counter < len(idset)-1:
+                    strip2 = frame[yc - strip_width : yc + strip_width + 1]
+                    try:
+                        py, px, reg_stats  = matching(np.ascontiguousarray(strip2[...,1]), np.ascontiguousarray(strip1[...,1]), strip_width, xc, upper_threshold)
+                    except:
+                        print("Matching failed. Skipping frame...")
+                        continue
+                    if np.sqrt((py - strip_width)**2 + (px-xc)**2) > stitching_threshold:
+                        continue
 
-                            # Padding
-                            current_x = int(sl*1.5)
-                            current_y = int(0.25*strip_width*len(idset))*interval
-                            mosaic = cv2.copyMakeBorder(mosaic, current_y, 0, current_x, current_x, cv2.BORDER_CONSTANT)
-                            left_border = 0
-                            right_border = mosaic.shape[1]
-                            
+                    y_offset = py - strip_width
+                    if y_offset <= 0:
+                        x_offset = px - xc
+                        current_x += x_offset 
+                        current_y += y_offset
+                        mstrip = strip2
+
+                        if idset[img_counter + 1] is None:
+                            continue
+
+                        if current_y < 0:
+                            mosaic = cv2.copyMakeBorder(mosaic, abs(current_y), 0, 0, 0, cv2.BORDER_CONSTANT)
+                            current_y = 0
+
+                        if current_x < left_border:
+                            mosaic = cv2.copyMakeBorder(mosaic,0, 0, -(current_x - left_border), 0, cv2.BORDER_CONSTANT) 
+                            left_border = current_x
+                        elif current_x + sl > right_border:
+                            mosaic = cv2.copyMakeBorder(mosaic,0, 0, 0, current_x + sl - right_border, cv2.BORDER_CONSTANT) 
+                            right_border = current_x + sl 
                         
-                        elif img_counter < len(idset)-1:
-                            strip2 = frame[yc - strip_width : yc + strip_width + 1]
-                            try:
-                                py, px, reg_stats  = matching(np.ascontiguousarray(strip2[...,1]), np.ascontiguousarray(strip1[...,1]), strip_width, xc, upper_threshold)
-                            except:
-                                print("Matching failed. Skipping frame...")
-                                continue
-                            if np.sqrt((py - strip_width)**2 + (px-xc)**2) > stitching_threshold:
-                                continue
+                        mosaic[current_y:current_y + strip_width*2+1,current_x - left_border : sl + current_x - left_border] = mstrip
 
-                            y_offset = py - strip_width
-                            if y_offset <= 0:
-                                x_offset = px - xc
-                                current_x += x_offset 
-                                current_y += y_offset
-                                mstrip = strip2
-
-                                if idset[img_counter + 1] is None:
-                                    continue
-
-                                if current_y < 0:
-                                    mosaic = cv2.copyMakeBorder(mosaic, abs(current_y), 0, 0, 0, cv2.BORDER_CONSTANT)
-                                    current_y = 0
-
-                                if current_x < left_border:
-                                    mosaic = cv2.copyMakeBorder(mosaic,0, 0, -(current_x - left_border), 0, cv2.BORDER_CONSTANT) 
-                                    left_border = current_x
-                                elif current_x + sl > right_border:
-                                    mosaic = cv2.copyMakeBorder(mosaic,0, 0, 0, current_x + sl - right_border, cv2.BORDER_CONSTANT) 
-                                    right_border = current_x + sl 
-                                
-                                mosaic[current_y:current_y + strip_width*2+1,current_x - left_border : sl + current_x - left_border] = mstrip
-
-                                strip1 = strip2
+                        strip1 = strip2
             try:
                 end_time = float(frame_data.loc[frame_data.frame_number == idset[img_counter], "frame_timestamp"].values[0]) + accumulated_time
                 non_black_rows = np.any(mosaic != [0, 0, 0], axis=(1, 2))
@@ -442,6 +448,10 @@ def mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res):
 
             mosaic_counter+=1
             bar()
+    try:
+        container.close()
+    except:
+        pass
     mosaic_time_boundaries.to_csv(os.path.join(mosaics_dir, "mosaic_time_boundaries.csv"), index = False)
     mosaic_meta_data = {
         "mosaic_time" : mosaic_t,
@@ -451,6 +461,7 @@ def mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res):
     }
     with open(os.path.join(mosaics_dir,f"mosaics_data.txt"), 'w') as file:
         file.write(str(mosaic_meta_data))
+    
 
 
 
@@ -479,9 +490,6 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
 
     lon_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lon, kind='linear', fill_value='extrapolate', bounds_error=False)
     lat_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.lat, kind='linear', fill_value='extrapolate', bounds_error=False)
-
-    # if heading_status == 1:
-    #     heading_interp = sp.interpolate.interp1d(gps_data.conv_time, gps_data.instr_heading, kind='linear', fill_value=0, bounds_error=False)
 
 
     if depth_status == 1:
@@ -590,7 +598,7 @@ def georeference(gps_data, data, vid_dir, mosaics_dir, kmz_dir, rect_mosaics_dir
                     r'lat.: %.8f°' % (lat_m),
                     r'lon.: %.8f°' % (lon_m),
                     r'bearing: %.2f°' % (heading),
-                    r'ave. depth: %.3f' % (depth),
+                    r'ave. depth: %.3f m' % (depth),
                 ))
 
                 ax.imshow(img)

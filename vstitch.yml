@@ -1,0 +1,7 @@
+name: vstitch
+channels:
+  - defaults
+dependencies:
+  - pip
+  - ipykernel
+prefix: /Users/jclmaypa/miniconda3/envs/vstitch
