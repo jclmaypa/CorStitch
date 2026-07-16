@@ -103,7 +103,7 @@ class MainWindow(QWidget):
         video_folder_layout.addWidget(projects_button)
         video_folder_layout.addWidget(video_folder_info)
         video_folder_widget.setLayout(video_folder_layout)
-        form_layout.addRow("Data Folder:", video_folder_widget)
+        form_layout.addRow("Video Folder:", video_folder_widget)
 
         # Output directory
         output_dir_widget = QWidget()
