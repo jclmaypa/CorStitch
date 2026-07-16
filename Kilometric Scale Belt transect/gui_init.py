@@ -4,13 +4,15 @@
 # This is free software, and you are welcome to redistribute it under the conditions specified in the GNU General Public License.; 
 # Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
 
+import matplotlib as mpl
+mpl.rcParams["font.family"] = "DejaVu Sans"
+mpl.use('Agg', force = True)
 import cv2
 import numpy as np
 import os
 from PIL import Image, ImageFile
 import pandas as pd
 import time
-# from tqdm import tqdm
 import scipy as sp
 import datetime
 from gpxcsv import gpxtolist

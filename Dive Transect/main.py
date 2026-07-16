@@ -2,9 +2,8 @@
 # CorStitch Copyright (C) 2025  Julian Christopher L. Maypa, Johnenn R. Manalang, and Maricor N. Soriano 
 # This program comes with ABSOLUTELY NO WARRANTY;
 # This is free software, and you are welcome to redistribute it under the conditions specified in the GNU General Public License.; 
-
-
-
+# Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
+print("Opening CorStitch...")
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QFileDialog,
     QVBoxLayout, QHBoxLayout, QCheckBox, QComboBox, QFormLayout, QDateEdit,
@@ -23,13 +22,9 @@ import scipy as sp
 import os
 import time
 import copy
-import matplotlib.pyplot as plt
-from matplotlib_scalebar.scalebar import ScaleBar
 import pandas as pd
 from PIL import Image
 import imutils
-import matplotlib
-matplotlib.use('Agg', force = True)
 from gui_init import mosaic_creation, scan_frames, mark_mosaics
 import warnings
 warnings.filterwarnings('ignore')

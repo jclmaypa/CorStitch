@@ -4,6 +4,11 @@
 # This is free software, and you are welcome to redistribute it under the conditions specified in the GNU General Public License.; 
 # Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
 
+print("Opening CorStitch...")
+import matplotlib as mpl
+mpl.rcParams["font.family"] = "DejaVu Sans"
+mpl.use('Agg', force = True)
+
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QFileDialog,
     QVBoxLayout, QHBoxLayout, QCheckBox, QComboBox, QFormLayout, QDateEdit,

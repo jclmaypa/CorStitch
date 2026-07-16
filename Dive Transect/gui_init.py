@@ -153,18 +153,6 @@ def matching(im1, im2, yc, xc, threshold):
 
     return py, px, [py_pc, px_pc, py_cc, px_cc, chosen]
 
-def matching_burst(im1, im2):
-    Fim1= fft2(im1, threads=NUM_THREADS)
-    Fim2= fft2(im2, threads=NUM_THREADS)
-    cc = np.conj(Fim1)*Fim2
-    pc = cc/(abs(cc) + 1e-20)
-
-    recon_cc = np.abs(fftshift(ifft2(cc, threads=NUM_THREADS)))
-    # recon_pc = np.abs(fftshift(ifft2(pc, threads=NUM_THREADS)))
-
-    py, px = np.unravel_index(recon_cc.argmax(), recon_cc.shape)
-
-    return py, px
 
 def get_imgdim(path):
     image = np.array(Image.open(path))
