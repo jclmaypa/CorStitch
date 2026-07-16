@@ -436,7 +436,7 @@ class MainWindow(QWidget):
             mosaic_creation(mosaic_t, sync_vid_time, vid_dir, mosaics_dir, video_res)
 
         if "mark_mosaics" in chosen_processes and num_marks > 0:
-            print("Scoring mosaics")
+            print("Marking mosaics")
             mark_mosaics(num_marks, mark_dir, mosaics_dir)
 
 
