@@ -1,4 +1,4 @@
-# Running CorStitch
+# Downloading CorStitch
 The .zip files contain the executables. To run the Python script, run gui_main.py with gui_init.py in the same directory.
 
 User's Manual: https://tinyurl.com/CorStitchManual
@@ -27,9 +27,9 @@ Once the mosaics are created, they can then be georeferenced. CorStitch uses GNS
 
 # CorStitch for Dive Transects 
 
-Aside from belt-transects, CorStitch can also create $n$-second mosaics from dive transect videos. These videos are manually captured by divers holding the camera in a downward-facing orientation. 
+Aside from belt transects, CorStitch can also convert dive transect videos to mosaics. Dive transect videos are collected by a diver holding a down-looking underwater camera across the whole length of the transect.
 
-After creating the mosaics, they can be uniformly and randomly sampled while maintaining a minimum distance between sampled points. CorStitch randomly placed red cross marks across the entire mosaic with a minimum separation distance of $5$% of the swath width. Each marking is assigned a number for labeling purposes. An example of a small section of a $50$-meter belt transect and its corresponding marked mosaic is shown below. 
+After creating the mosaics, they can be uniformly randomly sampled to simulate the sampling process of CPCe <sup>[4](#ref4)</sup>. CorStitch overlaid cross marks and a number on each chosen pixel with a minimum separation distance of $5$% of the swath width. An example of a small section of a $50$-meter belt transect and its corresponding marked mosaic is shown below. 
 
 
 <p align="center">
@@ -48,5 +48,7 @@ After creating the mosaics, they can be uniformly and randomly sampled while mai
 <a name="ref2">[2]</a> X. Tong et al., "Image Registration With Fourier-Based Image Correlation: A Comprehensive Review of Developments and Applications," in IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, vol. 12, no. 10, pp. 4062-4081, Oct. 2019, doi: <a href="https://doi.org/10.1109/JSTARS.2019.2937690">10.1109/JSTARS.2019.2937690</a>.<br>
 
 <a name="ref3">[3]</a> Aguinaldo, R.A, and Soriano, M., "Telecentric approximation in underwater image mosaics for minimizing parallax-induced errors", Proceedings of the Samahang Pisika ng Pilipinas 34, SPP-2016-4C-02 (2016). URL: <a href="https://proceedings.spp-online.org/article/view/SPP-2016-4C-02">https://proceedings.spp-online.org/article/view/SPP-2016-4C-02</a>.
+
+<a name = "ref4"> [4] </a> Kohler, K., & Gill, S. (2006). Coral Point Count with Excel extensions (CPCe): A Visual Basic program for the determination of coral and substrate coverage using random point count methodology. Computers & Geosciences, 32(9). URL: <a = "https://doi.org/10.1016/j.cageo.2005.11.009">https://doi.org/10.1016/j.cageo.2005.11.009</a>
 
 
