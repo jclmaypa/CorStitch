@@ -29,7 +29,7 @@ Once the mosaics are created, they can then be georeferenced. CorStitch uses GNS
 
 Aside from belt-transects, CorStitch can also create $n$-second mosaics from dive transect videos. These videos are manually captured by divers holding the camera in a downward-facing orientation. 
 
-After creating the mosaics, they can be uniformly and randomly sampled while maintaining a minimum distance between sampled points. CorStitch randomly placed red cross marks across the entire mosaic with a minimum separation distance of $5$% of the swath width. Each marking is assigned a number for labeling purposes. An example of a small section of a $ 50$-meter belt transect and its corresponding marked mosaic is shown below. 
+After creating the mosaics, they can be uniformly and randomly sampled while maintaining a minimum distance between sampled points. CorStitch randomly placed red cross marks across the entire mosaic with a minimum separation distance of $5$% of the swath width. Each marking is assigned a number for labeling purposes. An example of a small section of a $50$-meter belt transect and its corresponding marked mosaic is shown below. 
 
 
 <p align="center">
