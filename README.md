@@ -11,7 +11,7 @@ An Automated Rapid Reef Assessment System (ARRAS) has two parts. The first part 
 
 The second part of ARRAS is a software for automatic video stitching to create georeferenced visual records from the data collected from the first part. Enter CorStitch, a free, open-source software aimed at converting down-looking belt transect videos from ARRAS surveys into georeferenced mosaics. 
 
-# CorStitch
+# CorStitch for Kilometric-scale Belt Transects
 
 CorStitch can create panorama-like images called mosaics by using Fourier-based image registration<sup>[2](#ref2)</sup> on the central strips<sup>[3](#ref3)</sup> of adjacent frames to stitch them together. By repeating this process for an $n$ number of central strips of succeeding frames, CorStitch can create an $n$-second mosaic. The mosaics below are samples of $5$-second mosaics.
 
