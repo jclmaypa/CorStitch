@@ -25,6 +25,20 @@ Once the mosaics are created, they can then be georeferenced. CorStitch uses GNS
   <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_georef.png?raw=true" alt="Description" width="100%"/>
 </p>
 
+# CorStitch for Dive Transects 
+
+Aside from belt-transects, CorStitch can also create $n$-second mosaics from dive transect videos. These videos are manually captured by divers holding the camera in a downward-facing orientation. An example $5%-second mosaic is shown below.
+
+<p align="center">
+  <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_mosaics.png?raw=true" alt="Description" width="100%"/>
+</p>
+
+After creating the mosaics, they can be uniformly randomly sampled while maintaining a minimum distance between each sampled point. CorStitch randomly placed red cross marks across the entire mosaic with a minimum separation distance of $5$% of the swath width. Each marking is assigned a number for labeling purposes. Below is an example of a marked mosaic. 
+
+<p align="center">
+  <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/marked_Feb_12_olympus_P2072114.jpg?raw=true" alt="Description" width="100%"/>
+</p>
+
 # References:
 <a name="ref1">[1]</a> Soriano, M. N. (n.d.). Automated Rapid Reef Assessment System (Arras). DOST Technology Transfer. <a href="https://tapitechtransfer.dost.gov.ph/technologies/it-development/automated-rapid-reef-assessment-system-arras">https://tapitechtransfer.dost.gov.ph/technologies/it-development/automated-rapid-reef-assessment-system-arras</a><br>
 
