@@ -42,6 +42,8 @@ After creating the mosaics, they can be uniformly randomly sampled to simulate t
        alt="Marked Image"
        width="48%" />
 </p>
+# CorStitch Preprint
+Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
 
 # References:
 <a name="ref1">[1]</a> Soriano, M. N. (n.d.). Automated Rapid Reef Assessment System (Arras). DOST Technology Transfer. <a href="https://tapitechtransfer.dost.gov.ph/technologies/it-development/automated-rapid-reef-assessment-system-arras">https://tapitechtransfer.dost.gov.ph/technologies/it-development/automated-rapid-reef-assessment-system-arras</a><br>
