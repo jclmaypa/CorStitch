@@ -42,6 +42,7 @@ After creating the mosaics, they can be uniformly randomly sampled to simulate t
        alt="Marked Image"
        width="48%" />
 </p>
+
 # CorStitch Preprint
 Please properly cite our paper when using this software: https://arxiv.org/abs/2505.00462
 
