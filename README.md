@@ -25,6 +25,7 @@ Once the mosaics are created, they can then be georeferenced. CorStitch uses GNS
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/main/Sample_Images/Sample_georef.png?raw=true" alt="Description" width="100%"/>
 </p>
+There is a sample kmz file inside the Sample_KMZ folder if you want to check it out. You may open the file using Google Earth.
 
 # CorStitch for Dive Transects 
 
@@ -53,6 +54,6 @@ Please properly cite our paper when using this software: https://arxiv.org/abs/2
 
 <a name="ref3">[3]</a> Aguinaldo, R.A, and Soriano, M., "Telecentric approximation in underwater image mosaics for minimizing parallax-induced errors", Proceedings of the Samahang Pisika ng Pilipinas 34, SPP-2016-4C-02 (2016). URL: <a href="https://proceedings.spp-online.org/article/view/SPP-2016-4C-02">https://proceedings.spp-online.org/article/view/SPP-2016-4C-02</a>.
 
-<a name = "ref4"> [4] </a> Kohler, K., & Gill, S. (2006). Coral Point Count with Excel extensions (CPCe): A Visual Basic program for the determination of coral and substrate coverage using random point count methodology. Computers & Geosciences, 32(9). URL: <a = "https://doi.org/10.1016/j.cageo.2005.11.009">https://doi.org/10.1016/j.cageo.2005.11.009</a>
+<a name = "ref4"> [4] </a> Kohler, K., & Gill, S. (2006). Coral Point Count with Excel extensions (CPCe): A Visual Basic program for the determination of coral and substrate coverage using random point count methodology. Computers & Geosciences, 32(9). URL: <a href= "https://doi.org/10.1016/j.cageo.2005.11.009">https://doi.org/10.1016/j.cageo.2005.11.009</a>
 
 
