@@ -1,7 +1,7 @@
 # Downloading CorStitch
 The .zip files contain the executables. To run the Python script, run main.py with gui_init.py in the same directory for either Belt or Dive Transects.
 
-You may view the manuals here: <a href="https://docs.google.com/document/d/1iU3Yj9FqNrsEZZFyWWh53rApFekcdGFuro0AH1vIV5A/edit?tab=t.0#heading=h.tdgp6kdymnuv"> Belt Transect Manual </a> and <a href="https://docs.google.com/document/d/1MySvP2t0ovzwl0yyENVurPEY2cZDMjW4WzDGh45Ee5I/edit?tab=t.0"> Dive Transect Manual </a> 
+You may view the manuals here: <a href="https://docs.google.com/document/d/e/2PACX-1vS7T24H5BxYOQehiKlFXnxcrDX7D5VID4-WLEv_iD5X0zsgkT0UNWRU6KUlFnnYCvT_be2_wpBiUzX5/pub"> Belt Transect Manual </a> and <a href="https://docs.google.com/document/d/e/2PACX-1vS4E-KQcbRKzBWBTse2Mv7Ko7lPZ2b9-dXm6wugiAACQbpUS9S4whfV6opedXRo381sr4Lg2i8yRYJC/pub"> Dive Transect Manual </a> 
 
 
 # Overview
