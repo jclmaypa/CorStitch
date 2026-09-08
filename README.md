@@ -5,7 +5,7 @@ You may view the manuals here: <a href="https://docs.google.com/document/d/e/2PA
 
 
 # Overview
-An Automated Rapid Reef Assessment System (ARRAS) has two parts. The first part is composed of a banca-towable platform equipped with a down-looking camera<sup>[1](#ref1)</sup>. By using the first part to conduct an ARRAS survey, a belt transect video is obtained. A sample of this video can be seen below.
+The Automated Rapid Reef Assessment System (ARRAS) has two parts. The first part is composed of a boat-towable platform equipped with a down-looking camera<sup>[1](#ref1)</sup>. By using the first part to conduct an ARRAS survey, a belt transect video is obtained. A clip of this video can be seen below.
 <p align="center">
   <img src="https://github.com/jclmaypa/CorStitch/blob/47b69ecaae19efd6889afb5eb8edb0f2497467f3/Sample_Images/Sample_clip.gif?raw=true" alt="Description" width="100%"/>
 </p>
